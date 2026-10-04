@@ -1,0 +1,41 @@
+version: 1
+settings:
+  log_level: info
+  sync:
+  terms:
+  mode: create
+nessus:
+  connection:
+    host: ${NESSUS_HOST}
+    access_key: ${NESSUS_USERNAME}
+    secret_key: ${NESSUS_PASSWORD}
+  settings:
+    scan: 17
+    ignore:
+      severity:
+      hosts:
+      plugins:
+      combination:
+trello:
+  connection:
+    api_key: ${TRELLO_API_KEY}
+    api_token: ${TRELLO_API_TOKEN}
+  settings:
+    lists:
+      - Icebox
+      - Not Started
+      - Researching
+      - In Progress
+      - Remediated
+    labels:
+      low: green
+      medium: yellow
+      high: orange
+      critical: red
+      combined: purple
+      resolved: green_dark
+      waiting: sky_dark
+    automations:
+      -
+    buttons:
+      -
