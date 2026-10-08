@@ -1,5 +1,6 @@
 [tools]
 go = "1.27.1"
+"go:github.com/google/go-licenses/v2" = "v2.0.1"
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
 golangci-lint = "2.14.0"
 lefthook = "2.1.17"
@@ -20,6 +21,10 @@ run = "go mod download"
 [tasks.build]
 description = "Build application"
 run = "go build -o zagreus ./cmd/zagreus"
+
+[tasks.notices]
+description = "Collect dependency licenses and notices"
+run = "go-licenses save ./cmd/zagreus --save_path third_party_licenses --ignore github.com/woodleighschool/zagreus --force"
 
 [tasks.tidy]
 description = "Tidy the Go module"

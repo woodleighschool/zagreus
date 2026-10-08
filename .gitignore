@@ -49,3 +49,6 @@ config.yaml
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Generated dependency licenses
+/third_party_licenses/
