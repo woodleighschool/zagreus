@@ -28,8 +28,11 @@ env:
 
 jobs:
   workflow-lint:
+    if: >-
+      ${{ !(startsWith(github.head_ref, 'release-please--')
+      && github.event.pull_request.head.repo.full_name == github.repository) }}
     name: Workflow Lint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -39,7 +42,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           install: false
 
@@ -55,9 +58,12 @@ jobs:
           actionlint-version: ${{ steps.tools.outputs.actionlint }}
           zizmor-version: ${{ steps.tools.outputs.zizmor }}
 
-  backend:
-    name: Backend
-    runs-on: ubuntu-24.04
+  go-checks:
+    if: >-
+      ${{ !(startsWith(github.head_ref, 'release-please--')
+      && github.event.pull_request.head.repo.full_name == github.repository) }}
+    name: Go Checks
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Checkout
@@ -66,7 +72,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           experimental: true
           install_args: --locked go golangci-lint actionlint zizmor
@@ -106,7 +112,7 @@ jobs:
       ${{ !(startsWith(github.head_ref, 'release-please--')
       && github.event.pull_request.head.repo.full_name == github.repository) }}
     name: Go Vulncheck
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -115,7 +121,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Mise
-        uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           experimental: true
           install_args: --locked go go:golang.org/x/vuln/cmd/govulncheck
@@ -123,14 +129,26 @@ jobs:
       - name: Run govulncheck
         run: mise run vulncheck
 
+  goreleaser:
+    if: >-
+      ${{ !(startsWith(github.head_ref, 'release-please--')
+      && github.event.pull_request.head.repo.full_name == github.repository) }}
+    name: GoReleaser
+    uses: $/.github/workflows/goreleaser.yaml
+    permissions:
+      contents: read
+    with:
+      snapshot: true
+
   status:
     if: ${{ !cancelled() }}
     name: Build Success
     needs:
       - workflow-lint
-      - backend
+      - go-checks
       - go-vulncheck
-    runs-on: ubuntu-24.04
+      - goreleaser
+    runs-on: ubuntu-26.04
     permissions: {}
     steps:
       - name: Any jobs failed?
