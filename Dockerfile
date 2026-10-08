@@ -20,6 +20,7 @@ RUN go mod download
 RUN go install github.com/google/go-licenses/v2@v2.0.1
 
 COPY cmd/ cmd/
+COPY external/ external/
 COPY internal/ internal/
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
