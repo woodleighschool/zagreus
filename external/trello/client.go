@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -29,15 +28,11 @@ type Client struct {
 	accessKey   string
 	accessToken string
 	httpClient  *http.Client
-	now         func() time.Time
-
-	tokenMu sync.Mutex
-	token   string
 }
 
 func NewClient(config Config) (*Client, error) {
 	if strings.TrimSpace(config.AccessKey) == "" || strings.TrimSpace(config.AccessToken) == "" {
-		return nil, fmt.Errorf("Trello Access Key and Secret Key are required")
+		return nil, fmt.Errorf("trello access key and secret key are required")
 	}
 	return &Client{
 		apiEndpoint: "https://api.trello.com/1",
@@ -59,7 +54,7 @@ func (c *Client) request(
 	if err != nil {
 		return nil, err
 	}
-	requestURL := fmt.Sprintf("%s/%s", c.apiEndpoint, path)
+	requestURL := fmt.Sprintf("%s%s", c.apiEndpoint, path)
 	if len(query) != 0 {
 		requestURL += "?" + query.Encode()
 	}
@@ -69,6 +64,9 @@ func (c *Client) request(
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Authorization", fmt.Sprintf("OAuth oauth_consumer_key=\"%s\", oauth_token=\"%s\"", c.accessKey, c.accessToken))
+	if encoded != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
 
 	response, requestErr := c.httpClient.Do(request)
 	if requestErr != nil {

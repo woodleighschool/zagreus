@@ -8,16 +8,21 @@ type Config struct {
 }
 
 type ZagreusSettings struct {
-	LogLevel string            `yaml:"log_level"`
-	Sync     SyncSettings      `yaml:"sync"`
-	Terms    map[string]string `yaml:"terms"`
-	Mode     string            `yaml:"mode" jsonschema:"enum=create,enum=move"`
+	LogLevel string       `yaml:"log_level"`
+	Sync     SyncSettings `yaml:"sync"`
+	Terms    []Term       `yaml:"terms"`
+	Mode     string       `yaml:"mode" jsonschema:"enum=create,enum=move"`
 }
 
 type SyncSettings struct {
 	PollInterval Duration `yaml:"poll_interval,omitempty"`
 	RetryAfter   Duration `yaml:"retry_after,omitempty"`
 	RetryMax     Duration `yaml:"retry_max,omitempty"`
+}
+
+type Term struct {
+	Name  string    `yaml:"name"`
+	Range DateRange `yaml:"range"`
 }
 
 type NessusConfig struct {
@@ -34,11 +39,17 @@ type NessusConnection struct {
 type NessusSettings struct {
 	Scan   int `yaml:"scan"`
 	Ignore struct {
-		Severity    []string `yaml:"severity"`
-		Hosts       []string `yaml:"hosts"`
-		Plugins     []string `yaml:"plugins"`
-		Combination []string `yaml:"combination"`
+		Severity    []string                       `yaml:"severity"`
+		Plugins     []int                          `yaml:"plugins"`
+		Hosts       map[string]NessusHostExclusion `yaml:"hosts"`
+		Combination []string                       `yaml:"combination"`
 	} `yaml:"ignore"`
+}
+
+type NessusHostExclusion struct {
+	Full     *bool    `yaml:"full,omitempty"`
+	Plugins  []int    `yaml:"plugins,omitempty"`
+	Severity []string `yaml:"severity,omitempty"`
 }
 
 type TrelloConfig struct {
@@ -52,7 +63,10 @@ type TrelloConnection struct {
 }
 
 type TrelloSettings struct {
+	Prefix      string            `yaml:"board_prefix"`
 	Lists       []string          `yaml:"lists"`
+	In          string            `yaml:"in"`
+	Out         string            `yaml:"out"`
 	Labels      map[string]string `yaml:"labels"`
 	Automations []string          `yaml:"automations"`
 	Buttons     []string          `yaml:"buttons"`

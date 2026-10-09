@@ -1,4 +1,4 @@
-package zagreus
+package main
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 func runLoop(ctx context.Context, interval time.Duration, service *app.Service, wake <-chan struct{}, logger *slog.Logger) {
-	runCycle(ctx, service.Sync, logger)
+	runCycle(ctx, service.FullSync, logger)
 	for ctx.Err() == nil {
 		delay := interval
 		timer := time.NewTimer(delay)
@@ -31,7 +31,7 @@ func runLoop(ctx context.Context, interval time.Duration, service *app.Service, 
 			}
 		case <-timer.C:
 		}
-		runCycle(ctx, service.Sync, logger)
+		runCycle(ctx, service.FullSync, logger)
 	}
 }
 
@@ -48,9 +48,9 @@ func runCycle(ctx context.Context, sync func(context.Context) ([]app.Result, err
 			"reason", result.Reason,
 		}
 		if result.Error != nil {
-			logger.ErrorContext(ctx, "export failed", append(attributes, "error", result.Error))
+			logger.ErrorContext(ctx, "export failed", append(attributes, "error", result.Error)...)
 		} else {
-			logger.DebugContext(ctx, "export succeeded", attributes)
+			logger.DebugContext(ctx, "export succeeded", attributes...)
 		}
 	}
 	if err != nil {

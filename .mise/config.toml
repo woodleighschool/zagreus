@@ -1,11 +1,13 @@
 [tools]
 go = "1.27.2"
+"go:github.com/go-delve/delve/cmd/dlv" = "1.27.2"
 "go:github.com/google/go-licenses/v2" = "v2.0.1"
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
 golangci-lint = "2.14.0"
 lefthook = "2.1.17"
 actionlint = "1.7.12"
 zizmor = "1.30.1"
+node = "26.10.0"
 oxfmt = "0.71.0"
 "npm:@commitlint/cli" = "21.2.3"
 

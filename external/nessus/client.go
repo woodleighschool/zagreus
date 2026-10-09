@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -30,10 +29,6 @@ type Client struct {
 	accessKey   string
 	secretKey   string
 	httpClient  *http.Client
-	now         func() time.Time
-
-	tokenMu sync.Mutex
-	token   string
 }
 
 func NewClient(config Config) (*Client, error) {
@@ -47,7 +42,7 @@ func NewClient(config Config) (*Client, error) {
 	if parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, fmt.Errorf("nessus host must not contain query or fragment")
 	}
-	apiEndpoint := strings.TrimRight(config.Host, "/") + "/api"
+	apiEndpoint := strings.TrimRight(config.Host, "/")
 	return &Client{
 		apiEndpoint: apiEndpoint,
 		accessKey:   config.AccessKey,
@@ -68,7 +63,7 @@ func (c *Client) request(
 	if err != nil {
 		return nil, err
 	}
-	requestURL := fmt.Sprintf("%s/%s", c.apiEndpoint, path)
+	requestURL := fmt.Sprintf("%s%s", c.apiEndpoint, path)
 	if len(query) != 0 {
 		requestURL += "?" + query.Encode()
 	}
@@ -77,7 +72,7 @@ func (c *Client) request(
 		return nil, fmt.Errorf("create nessus api request: %w", requestErr)
 	}
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("X-ApiKeys", fmt.Sprintf("accessKey=%s; secretKey=%s", c.accessKey, c.secretKey))
+	request.Header.Set("X-Apikeys", fmt.Sprintf("accessKey=%s; secretKey=%s", c.accessKey, c.secretKey))
 
 	response, requestErr := c.httpClient.Do(request)
 	if requestErr != nil {

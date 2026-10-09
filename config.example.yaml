@@ -13,6 +13,8 @@ nessus:
     scan: 17
     ignore:
       severity:
+        - "info"
+        - "low"
       hosts:
       plugins:
       combination:
@@ -27,12 +29,13 @@ trello:
       - Researching
       - In Progress
       - Remediated
+    in: Not Started
+    out: Remediated
     labels:
       low: green
       medium: yellow
       high: orange
       critical: red
-      combined: purple
       resolved: green_dark
       waiting: sky_dark
     automations:

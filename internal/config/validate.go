@@ -3,11 +3,11 @@ package config
 import (
 	"fmt"
 	"net/url"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
+
+// TODO: Update
 
 const supportedVersion = 1
 
@@ -21,7 +21,7 @@ func (c *Config) applyDefaults() {
 	if !c.Settings.Sync.RetryAfter.set {
 		c.Settings.Sync.RetryAfter.Duration = 5 * time.Minute
 	}
-	if c.Settings.Sync.RetryMax.set {
+	if !c.Settings.Sync.RetryMax.set {
 		c.Settings.Sync.RetryMax.Duration = 30 * time.Minute
 	}
 }
@@ -30,6 +30,7 @@ func (c *Config) validate() error {
 	if c.Version != supportedVersion {
 		return fmt.Errorf("config version must be %d, found %d", supportedVersion, c.Version)
 	}
+	c.applyDefaults()
 	if err := c.validateSettings(); err != nil {
 		return err
 	}
@@ -44,9 +45,6 @@ func (c *Config) validateSettings() error {
 		return err
 	}
 	if err := c.validateSyncSettings(); err != nil {
-		return err
-	}
-	if err := c.validateTerms(); err != nil {
 		return err
 	}
 	return c.validateMode()
@@ -72,16 +70,6 @@ func (c *Config) validateSyncSettings() error {
 	}
 	if sync.RetryMax.Duration > 2*time.Hour || sync.RetryMax.Duration < 3*sync.RetryAfter.Duration {
 		return fmt.Errorf("application_settings.sync.retry_max must be less than 2 hours and greater than 3 x application_settings.sync.retry_after")
-	}
-	return nil
-}
-
-func (c *Config) validateTerms() error {
-	for name, term := range c.Settings.Terms {
-		_, err := time.Parse("2006-01-02", term)
-		if err != nil {
-			return fmt.Errorf("settings.term[%s]: failed to parse date %s", name, term)
-		}
 	}
 	return nil
 }
@@ -127,28 +115,9 @@ func (c *Config) validateNessusSettings() error {
 			return fmt.Errorf("nessus.settings.ignore.severity[%d]: %w", index, err)
 		}
 	}
-	for index, ignoredHost := range c.Nessus.Settings.Ignore.Hosts {
-		if err := validateHost(ignoredHost); err != nil {
-			return fmt.Errorf("nessus.settings.ignore.hosts[%d]: %w", index, err)
-		}
-	}
-	for index, ignoredPlugin := range c.Nessus.Settings.Ignore.Plugins {
-		if err := validatePlugin(ignoredPlugin); err != nil {
-			return fmt.Errorf("nessus.settings.ignore.plugin[%d]: %w", index, err)
-		}
-	}
-	for index, ignoreCombination := range c.Nessus.Settings.Ignore.Combination {
-		rules := strings.Split(ignoreCombination, ":")
-		if len(rules) != 2 {
-			return fmt.Errorf("nessus.settings.ignore.combination[%d]: %s is not a composite rule \"{host}:{severity|plugin}\"", index, ignoreCombination)
-		}
-		if err := validateHost(rules[0]); err != nil {
-			return fmt.Errorf("nessus.settings.ignore.combination[%d]: %w", index, err)
-		}
-		sevErr := validateSeverity(rules[1])
-		plugErr := validatePlugin(rules[1])
-		if sevErr != nil && plugErr != nil {
-			return fmt.Errorf("nessus.settings.ignore.combination[%d]: unable to parse second identifier %s", index, rules[1])
+	for hostname, settings := range c.Nessus.Settings.Ignore.Hosts {
+		if err := validateHost(settings); err != nil {
+			return fmt.Errorf("nessus.settings.ignore.hosts[%s]: %w", hostname, err)
 		}
 	}
 	return nil
@@ -162,17 +131,14 @@ func validateSeverity(severity string) error {
 		return fmt.Errorf("must be info|low|medium|high|critical, got %s", severity)
 	}
 }
-func validateHost(host string) error {
-	match, err := regexp.MatchString(`[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}`, host)
-	if err != nil || !match {
-		return fmt.Errorf("cannot parse %s as an IPv4 address", host)
+func validateHost(host NessusHostExclusion) error {
+	if host.Full == nil && len(host.Plugins) == 0 && len(host.Severity) == 0 {
+		return fmt.Errorf("must contain at least one condition")
 	}
-	return nil
-}
-func validatePlugin(plugin string) error {
-	_, err := strconv.Atoi(plugin)
-	if err != nil {
-		return fmt.Errorf("%s is not a numerical identifier", plugin)
+	if host.Full != nil && *host.Full {
+		if len(host.Plugins) != 0 || len(host.Severity) != 0 {
+			return fmt.Errorf("cannot be fully excluded and have severity/plugin rules")
+		}
 	}
 	return nil
 }

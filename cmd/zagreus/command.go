@@ -1,4 +1,4 @@
-package zagreus
+package main
 
 import (
 	"errors"
@@ -15,6 +15,7 @@ import (
 
 func newRootCommand() *cobra.Command {
 	var configPaths []string
+	var logLevel string
 	command := &cobra.Command{
 		Use:           "zagreus",
 		Short:         "Syncs current vulnerabilities from Nessus Professional into Trello",
@@ -32,9 +33,17 @@ func newRootCommand() *cobra.Command {
 		defaultConfigPaths(),
 		"path to a YAML configuration file; may be repeated in overlay order",
 	)
+	command.PersistentFlags().StringVar(
+		&logLevel,
+		"log_level",
+		"info",
+		"log verbosity level",
+	)
 	command.AddCommand(
-		newRunCommand(&configPaths),
-		newSyncCommand(&configPaths),
+		newPlanCommand(&configPaths, &logLevel),
+		newRunCommand(&configPaths, &logLevel),
+		newSyncCommand(&configPaths, &logLevel),
+		newPollCommand(&configPaths, &logLevel),
 		newSchemaCommand(),
 		newVersionCommand(),
 	)
@@ -49,24 +58,56 @@ func defaultConfigPaths() []string {
 	return []string{"config.yaml"}
 }
 
-func newRunCommand(configPaths *[]string) *cobra.Command {
+func newPlanCommand(configPaths *[]string, logLevel *string) *cobra.Command {
+	var output string
+	command := &cobra.Command{
+		Use:   "plan",
+		Short: "Runs full sync once but does not commit any changes, merely shows what it would do",
+		Args:  cobra.NoArgs,
+		RunE: func(command *cobra.Command, _ []string) error {
+			level, err := parseLogLevel(*logLevel)
+			if err != nil {
+				return err
+			}
+			if output != "human" && output != "json" {
+				return fmt.Errorf("output must be human or json")
+			}
+			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
+			application, _, err := buildOperationalApp(command, *configPaths, logger)
+			if err != nil {
+				return err
+			}
+			logger.Info("Zagreus started", "version", version, "config", *configPaths, "mode", "plan")
+			plans, planErr := application.Plan(command.Context())
+			if len(plans) != 0 {
+				writeErr := writePlans(command.OutOrStdout(), plans, output)
+				return errors.Join(planErr, writeErr)
+			}
+			logger.InfoContext(command.Context(), "Nothing to action")
+			return nil
+		},
+	}
+	command.Flags().StringVar(&output, "output", "json", "plan output format: human or json")
+	return command
+}
+
+func newRunCommand(configPaths *[]string, logLevel *string) *cobra.Command {
 	var once bool
-	var logLevel string
 	command := &cobra.Command{
 		Use:   "run",
 		Short: "Syncs vulnerabilities from Nessus to Trello immediately, and then again at configured intervals",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			level, err := parseLogLevel(logLevel)
-			if err != nil {
-				return err
-			}
-			application, interval, err := buildOperationalApp(*configPaths)
+			level, err := parseLogLevel(*logLevel)
 			if err != nil {
 				return err
 			}
 			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
-			logger.Info("Zagreus started", "version", version, "config", *configPaths, "once", once)
+			application, interval, err := buildOperationalApp(command, *configPaths, logger)
+			if err != nil {
+				return err
+			}
+			logger.Info("Zagreus started", "version", version, "config", *configPaths, "mode", "write", "once", once)
 			syncDone := make(chan struct{})
 			wake := make(chan struct{}, 1)
 			go func() {
@@ -78,21 +119,46 @@ func newRunCommand(configPaths *[]string) *cobra.Command {
 		},
 	}
 	command.Flags().BoolVar(&once, "once", false, "run once and exit")
-	command.Flags().StringVar(&logLevel, "log-level", "info", "log level: debug, info, warn, or error")
 	return command
 }
 
-func newSyncCommand(configPaths *[]string) *cobra.Command {
+func newSyncCommand(configPaths *[]string, logLevel *string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
 		Short: "Syncs all vulnerabilities from latest Nessus report to Trello on demand",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			application, _, err := buildOperationalApp(*configPaths)
+			level, err := parseLogLevel(*logLevel)
 			if err != nil {
 				return err
 			}
-			results, err := application.Sync(command.Context())
+			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
+			application, _, err := buildOperationalApp(command, *configPaths, logger)
+			if err != nil {
+				return err
+			}
+			results, err := application.FullSync(command.Context())
+			return errors.Join(writeSyncResults(command.OutOrStdout(), results), err)
+		},
+	}
+}
+
+func newPollCommand(configPaths *[]string, logLevel *string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "poll",
+		Short: "Checks for any Trello-side updates to make",
+		Args:  cobra.NoArgs,
+		RunE: func(command *cobra.Command, _ []string) error {
+			level, err := parseLogLevel(*logLevel)
+			if err != nil {
+				return err
+			}
+			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
+			application, _, err := buildOperationalApp(command, *configPaths, logger)
+			if err != nil {
+				return err
+			}
+			results, err := application.Poll(command.Context())
 			return errors.Join(writeSyncResults(command.OutOrStdout(), results), err)
 		},
 	}
@@ -129,18 +195,18 @@ func newVersionCommand() *cobra.Command {
 		Short: "Show version information",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintln(command.OutOrStdout(), "zagreus %s\ncommit: %s\nbuilt %s\n", version, commit, date)
+			_, err := fmt.Fprintf(command.OutOrStdout(), "zagreus %s\ncommit: %s\nbuilt %s\n", version, commit, date)
 			return err
 		},
 	}
 }
 
-func buildOperationalApp(configPaths []string) (*app.Service, time.Duration, error) {
+func buildOperationalApp(command *cobra.Command, configPaths []string, logger *slog.Logger) (*app.Service, time.Duration, error) {
 	cfg, err := config.Load(configPaths...)
 	if err != nil {
 		return nil, time.Microsecond, fmt.Errorf("load configuration: %w", err)
 	}
-	application, err := app.New(cfg)
+	application, err := app.New(command.Context(), cfg, logger)
 	if err != nil {
 		return nil, time.Microsecond, fmt.Errorf("start service: %w", err)
 	}

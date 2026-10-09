@@ -1,4 +1,4 @@
-package zagreus
+package main
 
 import (
 	"context"

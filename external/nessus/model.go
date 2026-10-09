@@ -1,5 +1,34 @@
 package nessus
 
+// Enums
+
+type Severity int
+
+const (
+	InfoSeverity     Severity = 0
+	LowSeverity      Severity = 1
+	MediumSeverity   Severity = 2
+	HighSeverity     Severity = 3
+	CriticalSeverity Severity = 4
+)
+
+func (s Severity) String() string {
+	switch s {
+	case InfoSeverity:
+		return "info"
+	case LowSeverity:
+		return "low"
+	case MediumSeverity:
+		return "medium"
+	case HighSeverity:
+		return "high"
+	case CriticalSeverity:
+		return "critical"
+	default:
+		return ""
+	}
+}
+
 // /scans/{scan_id}
 
 type Scan struct {
@@ -10,7 +39,7 @@ type Scan struct {
 		Policy          string       `json:"policy"`
 		PCICanUpload    bool         `json:"pci-can-upload"`
 		HasAuditTrail   bool         `json:"hasaudittrail"`
-		ScanStart       string       `json:"scan_start"`
+		ScanStart       int          `json:"scan_start"`
 		FolderID        int          `json:"folder_id"`
 		Targets         string       `json:"targets"`
 		Timestamp       int          `json:"timestamp"`
@@ -19,7 +48,7 @@ type Scan struct {
 		HasKB           bool         `json:"haskb"`
 		UUID            string       `json:"uuid"`
 		HostCount       int          `json:"hostcount"`
-		ScanEnd         string       `json:"scan_end"`
+		ScanEnd         int          `json:"scan_end"`
 		Name            string       `json:"name"`
 		UserPermissions int          `json:"user_permissions"`
 		Control         bool         `json:"control"`
@@ -59,7 +88,7 @@ const (
 
 type Host struct {
 	ID                  int    `json:"host_id"`
-	Index               string `json:"host_index"`
+	Index               int    `json:"host_index"`
 	Name                string `json:"hostname"`
 	Progress            string `json:"progress"`
 	Severity            int    `json:"severity"`
@@ -123,29 +152,29 @@ type HostDetails struct {
 		HostEnd         string `json:"host_end"`
 		OperatingSystem string `json:"operating-system"`
 		IP              string `json:"host-ip"`
-	}
+	} `json:"info"`
 	Compliance      []HostCompliance    `json:"compliance"`
 	Vulnerabilities []HostVulnerability `json:"vulnerabilities"`
 }
 
 type HostCompliance struct {
-	HostID        int    `json:"host_id"`
-	Hostname      string `json:"hostname"`
-	PluginID      int    `json:"plugin_id"`
-	PluginName    string `json:"plugin_name"`
-	PluginFamily  string `json:"plugin_family"`
-	Count         int    `json:"count"`
-	SeverityIndex int    `json:"severity_index"`
-	Severity      int    `json:"severity"`
+	HostID        int      `json:"host_id"`
+	Hostname      string   `json:"hostname"`
+	PluginID      int      `json:"plugin_id"`
+	PluginName    string   `json:"plugin_name"`
+	PluginFamily  string   `json:"plugin_family"`
+	Count         int      `json:"count"`
+	SeverityIndex int      `json:"severity_index"`
+	Severity      Severity `json:"severity"`
 }
 type HostVulnerability struct {
-	HostID             int    `json:"host_id"`
-	Hostname           string `json:"hostname"`
-	PluginID           int    `json:"plugin_id"`
-	PluginName         string `json:"plugin_name"`
-	PluginFamily       string `json:"plugin_family"`
-	Count              int    `json:"count"`
-	VulnerabilityIndex int    `json:"vuln_index"`
-	SeverityIndex      int    `json:"severity_index"`
-	Severity           int    `json:"severity"`
+	HostID             int      `json:"host_id"`
+	Hostname           string   `json:"hostname"`
+	PluginID           int      `json:"plugin_id"`
+	PluginName         string   `json:"plugin_name"`
+	PluginFamily       string   `json:"plugin_family"`
+	Count              int      `json:"count"`
+	VulnerabilityIndex int      `json:"vuln_index"`
+	SeverityIndex      int      `json:"severity_index"`
+	Severity           Severity `json:"severity"`
 }
