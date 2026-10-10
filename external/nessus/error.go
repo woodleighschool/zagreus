@@ -16,9 +16,9 @@ type httpError struct {
 
 func (e *httpError) Error() string {
 	if e.body == "" {
-		return fmt.Sprintf("Nessus API returned HTTP %d", e.status)
+		return fmt.Sprintf("nessus API: HTTP %d", e.status)
 	}
-	return fmt.Sprintf("Nessus API %s returned HTTP %d: %s", e.requestURL, e.status, e.body)
+	return fmt.Sprintf("nessus API %s: HTTP %d: %s", e.requestURL, e.status, e.body)
 }
 
 func NewHTTPError(url string, status int, body []byte) error {

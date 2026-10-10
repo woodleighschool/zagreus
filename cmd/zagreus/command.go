@@ -59,7 +59,7 @@ func defaultConfigPaths() []string {
 }
 
 func newPlanCommand(configPaths *[]string, logLevel *string) *cobra.Command {
-	var output string
+	var onlyChanges bool
 	command := &cobra.Command{
 		Use:   "plan",
 		Short: "Runs full sync once but does not commit any changes, merely shows what it would do",
@@ -69,25 +69,22 @@ func newPlanCommand(configPaths *[]string, logLevel *string) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if output != "human" && output != "json" {
-				return fmt.Errorf("output must be human or json")
-			}
 			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
 			application, _, err := buildOperationalApp(command, *configPaths, logger)
 			if err != nil {
 				return err
 			}
 			logger.Info("Zagreus started", "version", version, "config", *configPaths, "mode", "plan")
-			plans, planErr := application.Plan(command.Context())
+			plans, planErr := application.Plan(command.Context(), onlyChanges)
 			if len(plans) != 0 {
-				writeErr := writePlans(command.OutOrStdout(), plans, output)
+				writeErr := writePlans(command.OutOrStdout(), plans)
 				return errors.Join(planErr, writeErr)
 			}
 			logger.InfoContext(command.Context(), "Nothing to action")
 			return nil
 		},
 	}
-	command.Flags().StringVar(&output, "output", "json", "plan output format: human or json")
+	command.Flags().BoolVar(&onlyChanges, "only_changes", true, "only output changes not anything to be skipped")
 	return command
 }
 
@@ -111,6 +108,7 @@ func newRunCommand(configPaths *[]string, logLevel *string) *cobra.Command {
 			syncDone := make(chan struct{})
 			wake := make(chan struct{}, 1)
 			go func() {
+				// TODO: Review
 				runLoop(command.Context(), interval, application, wake, logger)
 				close(syncDone)
 			}()
@@ -179,7 +177,7 @@ func newSchemaCommand() *cobra.Command {
 				_, err = command.OutOrStdout().Write(document)
 				return err
 			}
-			if err := os.WriteFile(outputPath, document, 0o644); err != nil {
+			if err := os.WriteFile(outputPath, document, 0o644); err != nil { // #nosec G306 - Containerized, we will always control the file system
 				return fmt.Errorf("write config schema: %w", err)
 			}
 			return nil

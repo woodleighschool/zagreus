@@ -48,7 +48,7 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 
 func (d *DateTime) MarshalJSON() ([]byte, error) {
 	t := time.Time(*d)
-	formatted := t.Format("2006-01-02T15:04:05.000Z")
+	formatted := t.UTC().Format("2006-01-02T15:04:05.000Z")
 	return json.Marshal(formatted)
 }
 
@@ -268,6 +268,14 @@ type BoardMemberResponse struct {
 	Deactivated bool   `json:"deactivated"`
 }
 
+type BoardLabelResponse struct {
+	ID      string `json:"id"`
+	BoardID string `json:"idBoard"`
+	Name    string `json:"name"`
+	Color   string `json:"color"`
+	Uses    int    `json:"uses"`
+}
+
 type NewBoardRequest struct {
 	Name                 string  `json:"name" validate:"omitempty,min=1,max=16384"`
 	DefaultLabels        *bool   `json:"defaultLabels,omitempty"`
@@ -287,17 +295,17 @@ type NewBoardRequest struct {
 	PrefsCardAging       *string `json:"prefs_cardAging,omitempty" validate:"omitempty,oneof=pirate regular"`
 }
 
-type BoardLabelResponse struct {
-	ID      string `json:"id"`
-	BoardID string `json:"idBoard"`
-	Name    string `json:"name"`
-	Color   string `json:"color"`
-	Uses    int    `json:"uses"`
-}
-
 type NewBoardLabelRequest struct {
 	Name  string `json:"name"`
 	Color string `json:"color" validate:"labelColor"`
+}
+
+type UpdateBoardRequest struct {
+	Name           *string `json:"name,omitempty" validate:"omitempty,min=1,max=16384"`
+	Description    *string `json:"desc,omitempty" validate:"omitempty,max=16384"`
+	Closed         *bool   `json:"closed,omitempty"`
+	Subscribed     *string `json:"subscribed,omitempty" validate:"omitempty,trelloID"`
+	OrganizationID *string `json:"idOrganization,omitempty"`
 }
 
 // Board Lists
@@ -420,10 +428,11 @@ type UpdateCardRequest struct {
 	MemberIDs         []string      `json:"idMembers,omitempty" validate:"omitempty,dive,trelloID"`
 	AttachmentCoverID *string       `json:"idAttachmentCover,omitempty" validate:"omitempty,trelloID"`
 	ListID            *string       `json:"idList,omitempty" validate:"omitempty,trelloID"`
-	LabelIDs          []string      `json:"idLabels,omitempty" validate:"omitempty,trelloID"`
+	LabelIDs          []string      `json:"idLabels,omitempty" validate:"omitempty,dive,trelloID"`
 	BoardID           *string       `json:"idBoard,omitempty" validate:"omitempty,trelloID"`
 	Position          *KeywordFloat `json:"pos,omitempty"`
 	Due               *DateTime     `json:"due,omitempty"`
+	DueComplete       *bool         `json:"dueComplete,omitempty"`
 }
 
 // Checklists

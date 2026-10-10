@@ -15,7 +15,6 @@ import (
 
 const (
 	defaultHTTPTimeout = 30 * time.Second
-	tokenRefreshLeeway = 30 * time.Second
 )
 
 type Config struct {

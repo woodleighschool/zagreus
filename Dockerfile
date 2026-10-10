@@ -45,3 +45,4 @@ COPY --from=builder /usr/local/go/LICENSE /third_party_licenses/go/LICENSE
 COPY --from=builder /workspace/zagreus /zagreus
 USER 65532:65532
 ENTRYPOINT ["/zagreus"]
+CMD ["run"]

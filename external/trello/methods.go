@@ -38,7 +38,7 @@ func (c *Client) GetLatestBoard(ctx context.Context, prefix *string) (BoardRespo
 		}
 
 		// TODO: I would like a warning for this scenario
-		if result.LastActivity == nil || board.LastActivity == nil {
+		if result.LastActivity == nil || board.LastActivity == nil || board.Closed {
 			continue
 		}
 
@@ -48,6 +48,18 @@ func (c *Client) GetLatestBoard(ctx context.Context, prefix *string) (BoardRespo
 	}
 
 	return result, nil
+}
+
+func (c *Client) UpdateBoard(ctx context.Context, boardID string, payload UpdateBoardRequest) error {
+	url := fmt.Sprintf("/boards/%s", boardID)
+	if err := validate(payload); err != nil {
+		return err
+	}
+	_, err := c.request(ctx, http.MethodPut, url, nil, payload, http.StatusOK)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Client) ListBoardLists(ctx context.Context, boardID string) ([]BoardListResponse, error) {
@@ -74,34 +86,6 @@ func (c *Client) ListBoardLabels(ctx context.Context, boardID string) ([]BoardLa
 		return nil, err
 	}
 	return result, nil
-}
-
-func (c *Client) CreateBoardList(ctx context.Context, boardID string, payload NewBoardListRequest) (BoardListResponse, error) {
-	var result BoardListResponse
-	url := fmt.Sprintf("/boards/%s/lists", boardID)
-	if err := validate(payload); err != nil {
-		return BoardListResponse{}, err
-	}
-	body, err := c.request(ctx, http.MethodPost, url, nil, payload, http.StatusOK)
-	if err != nil {
-		return BoardListResponse{}, err
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return BoardListResponse{}, err
-	}
-	return result, nil
-}
-
-func (c *Client) CreateBoardLabel(ctx context.Context, boardID string, payload NewBoardLabelRequest) error {
-	url := fmt.Sprintf("/boards/%s/labels", boardID)
-	if err := validate(payload); err != nil {
-		return err
-	}
-	_, err := c.request(ctx, http.MethodPost, url, nil, payload, http.StatusOK)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (c *Client) ListBoardCards(ctx context.Context, boardID string) ([]CardResponse, error) {
@@ -147,6 +131,34 @@ func (c *Client) GetChecklistItems(ctx context.Context, checklistID string) ([]C
 	return result, nil
 }
 
+func (c *Client) CreateBoardList(ctx context.Context, boardID string, payload NewBoardListRequest) (BoardListResponse, error) {
+	var result BoardListResponse
+	url := fmt.Sprintf("/boards/%s/lists", boardID)
+	if err := validate(payload); err != nil {
+		return BoardListResponse{}, err
+	}
+	body, err := c.request(ctx, http.MethodPost, url, nil, payload, http.StatusOK)
+	if err != nil {
+		return BoardListResponse{}, err
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return BoardListResponse{}, err
+	}
+	return result, nil
+}
+
+func (c *Client) CreateBoardLabel(ctx context.Context, boardID string, payload NewBoardLabelRequest) error {
+	url := fmt.Sprintf("/boards/%s/labels", boardID)
+	if err := validate(payload); err != nil {
+		return err
+	}
+	_, err := c.request(ctx, http.MethodPost, url, nil, payload, http.StatusOK)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Client) CreateCard(ctx context.Context, listID string, payload NewCardRequest) (CardResponse, error) {
 	var result CardResponse
 	if err := validate(payload); err != nil {
@@ -170,6 +182,15 @@ func (c *Client) UpdateCard(ctx context.Context, cardID string, payload UpdateCa
 		return err
 	}
 	_, err := c.request(ctx, http.MethodPut, url, nil, payload, http.StatusOK)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) ArchiveCardsInList(ctx context.Context, listID string) error {
+	url := fmt.Sprintf("/lists/%s/archiveAllCards", listID)
+	_, err := c.request(ctx, http.MethodPost, url, nil, nil, http.StatusOK)
 	if err != nil {
 		return err
 	}
@@ -216,7 +237,17 @@ func (c *Client) UpdateCheckitem(ctx context.Context, cardID string, checkitemID
 	return nil
 }
 
-func (c *Client) CopyBoard(_ context.Context, _ string) error {
-	// TODO: Implementation
-	return nil
+func (c *Client) CopyBoard(ctx context.Context, payload NewBoardRequest) (BoardResponse, error) {
+	var result BoardResponse
+	if err := validate(payload); err != nil {
+		return BoardResponse{}, err
+	}
+	body, err := c.request(ctx, http.MethodPost, "/boards", nil, payload, http.StatusOK)
+	if err != nil {
+		return BoardResponse{}, err
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return BoardResponse{}, err
+	}
+	return result, nil
 }

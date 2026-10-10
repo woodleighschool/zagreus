@@ -73,7 +73,7 @@ func load(paths []string, lookup func(string) (string, bool)) (*Config, error) {
 }
 
 func readDocument(path string) (yaml.Node, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec 304 - Containerized, we will always control the file system
 	if err != nil {
 		return yaml.Node{}, fmt.Errorf("read config %s: %w", path, err)
 	}

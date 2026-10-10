@@ -11,12 +11,8 @@ func writeSyncResults(writer io.Writer, results []app.Result) error {
 	return writeJSON(writer, results)
 }
 
-func writePlans(writer io.Writer, plans []app.Intent, output string) error {
-	if output == "json" {
-		return writeJSON(writer, plans)
-	}
-	// TODO: Human output
-	return nil
+func writePlans(writer io.Writer, plans []app.Intent) error {
+	return writeJSON(writer, plans)
 }
 
 func writeJSON(writer io.Writer, value any) error {
