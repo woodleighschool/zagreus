@@ -1,5 +1,10 @@
 # zagreus
 
+[![Release](https://img.shields.io/github/v/release/woodleighschool/zagreus?display_name=tag&sort=semver)](https://github.com/woodleighschool/zagreus/releases/latest)
+[![CI](https://github.com/woodleighschool/zagreus/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/woodleighschool/zagreus/actions/workflows/ci.yaml)
+[![Go](https://img.shields.io/github/go-mod/go-version/woodleighschool/zagreus?logo=go)](https://github.com/woodleighschool/zagreus/blob/main/go.mod)
+[![License](https://img.shields.io/github/license/woodleighschool/zagreus)](https://github.com/woodleighschool/zagreus/blob/main/LICENSE)
+
 > **zagreus** — the head of security in Hades, the underworld
 
 Imports and exports any changes in a scheduled Nessus scan to a designated Trello board for easy management
@@ -16,7 +21,7 @@ docker compose up -d
 
 Configuration comes from a yaml file using the following schema:
 
-_TBD_
+[Zagreus Schema](zagreus.schema.json)
 
 ## 🧑‍💻 Development
 

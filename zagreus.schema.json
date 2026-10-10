@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/woodleighschool/zagreus/main/zagreus.schema.json",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "Config": {
+      "properties": {
+        "version": {
+          "type": "integer"
+        },
+        "settings": {
+          "$ref": "#/$defs/ZagreusSettings"
+        },
+        "nessus": {
+          "$ref": "#/$defs/NessusConfig"
+        },
+        "trello": {
+          "$ref": "#/$defs/TrelloConfig"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["version", "settings", "nessus", "trello"]
+    },
+    "DateRange": {
+      "properties": {
+        "Start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "End": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["Start", "End"]
+    },
+    "NessusConfig": {
+      "properties": {
+        "connection": {
+          "$ref": "#/$defs/NessusConnection"
+        },
+        "settings": {
+          "$ref": "#/$defs/NessusSettings"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["connection", "settings"]
+    },
+    "NessusConnection": {
+      "properties": {
+        "host": {
+          "type": "string"
+        },
+        "access_key": {
+          "type": "string"
+        },
+        "secret_key": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["host", "access_key", "secret_key"]
+    },
+    "NessusHostExclusion": {
+      "properties": {
+        "full": {
+          "type": "boolean"
+        },
+        "plugins": {
+          "items": {
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "severity": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "NessusSettings": {
+      "properties": {
+        "scan": {
+          "type": "integer"
+        },
+        "ignore": {
+          "properties": {
+            "severity": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "plugins": {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            "hosts": {
+              "additionalProperties": {
+                "$ref": "#/$defs/NessusHostExclusion"
+              },
+              "type": "object"
+            },
+            "combination": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": ["severity", "plugins", "hosts", "combination"]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["scan", "ignore"]
+    },
+    "SyncSettings": {
+      "properties": {
+        "poll_interval": {
+          "type": "string",
+          "examples": ["1m", "15m", "1h"]
+        },
+        "retry_after": {
+          "type": "string",
+          "examples": ["1m", "15m", "1h"]
+        },
+        "retry_max": {
+          "type": "string",
+          "examples": ["1m", "15m", "1h"]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Term": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "range": {
+          "$ref": "#/$defs/DateRange"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["name", "range"]
+    },
+    "TrelloConfig": {
+      "properties": {
+        "connection": {
+          "$ref": "#/$defs/TrelloConnection"
+        },
+        "settings": {
+          "$ref": "#/$defs/TrelloSettings"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["connection", "settings"]
+    },
+    "TrelloConnection": {
+      "properties": {
+        "api_key": {
+          "type": "string"
+        },
+        "api_token": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["api_key", "api_token"]
+    },
+    "TrelloSettings": {
+      "properties": {
+        "board_prefix": {
+          "type": "string"
+        },
+        "lists": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "in": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "automations": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "buttons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["board_prefix", "lists", "in", "out", "labels", "automations", "buttons"]
+    },
+    "ZagreusSettings": {
+      "properties": {
+        "log_level": {
+          "type": "string"
+        },
+        "sync": {
+          "$ref": "#/$defs/SyncSettings"
+        },
+        "terms": {
+          "items": {
+            "$ref": "#/$defs/Term"
+          },
+          "type": "array"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["create", "move"]
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": ["log_level", "sync", "terms", "mode"]
+    }
+  },
+  "title": "Zagreus configuration",
+  "description": "External API connections, sync parameters"
+}
