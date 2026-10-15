@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"os/signal"
 	"syscall"
 )
+
+var errInterrupted = errors.New("interrupted")
+var errTerminated = errors.New("terminated")
 
 var (
 	version = "dev"
@@ -19,11 +22,39 @@ func main() {
 }
 
 func run() int {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signalContext()
 	defer stop()
-	if err := newRootCommand().ExecuteContext(ctx); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+	command, output := newRootCommand()
+	executed, err := command.ExecuteContextC(ctx)
+	output.finish(executed, err)
+	if errors.Is(context.Cause(ctx), errInterrupted) {
+		return 130
+	}
+	if errors.Is(context.Cause(ctx), errTerminated) {
+		return 143
+	}
+	if err != nil {
 		return 1
 	}
 	return 0
+}
+
+func signalContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		select {
+		case received := <-signals:
+			signal.Stop(signals)
+			cause := errInterrupted
+			if received == syscall.SIGTERM {
+				cause = errTerminated
+			}
+			cancel(cause)
+		case <-ctx.Done():
+			signal.Stop(signals)
+		}
+	}()
+	return ctx, func() { cancel(context.Canceled) }
 }

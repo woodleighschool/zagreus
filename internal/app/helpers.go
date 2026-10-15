@@ -65,6 +65,17 @@ func reconcileLists(nessusList map[string]bool, trelloList map[string]bool) (map
 	return result, equal
 }
 
+func reconcileLabels(nessusLabels []Severity, trelloLabels []Severity, remove ...Severity) []Severity {
+	var result []Severity
+	appended := slices.Concat(nessusLabels, trelloLabels)
+	dedup := slices.Compact(appended)
+	result = dedup
+	for _, sev := range remove {
+		result = slices.DeleteFunc(result, func(s Severity) bool { return s == sev })
+	}
+	return result
+}
+
 func getIdentifier(host nessus.HostDetails) string {
 	if host.Info.FQDN != "" {
 		return host.Info.FQDN

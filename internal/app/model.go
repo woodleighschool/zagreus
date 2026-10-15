@@ -12,6 +12,10 @@ const (
 	WaitingSeverity  Severity = `waiting`
 )
 
+func (s Severity) String() string {
+	return string(s)
+}
+
 type Action string
 
 const (
@@ -31,35 +35,36 @@ const (
 	OutcomeClosed   Outcome = `closed`
 	OutcomeSkipped  Outcome = `skipped`
 	OutcomeFailed   Outcome = `failed`
+	OutcomePlan     Outcome = `plan`
 )
 
 type Result struct {
-	Title         string         `json:"title"`
-	Action        *Action        `json:"action"`
-	Outcome       Outcome        `json:"outcome"`
-	Reason        string         `json:"reason"`
-	Vulnerability *Vulnerability `json:"vulnerability"`
-	Error         *error         `json:"error"`
-}
+	Intent
 
-type Vulnerability struct {
-	Title       string
-	Description string
-	Hosts       map[string]bool
-	Labels      []Severity
-	Closed      bool
-	CardID      *string
-	ChecklistID *string
+	Outcome Outcome `json:"outcome"`
+	Error   *error  `json:"error"`
 }
 
 type Intent struct {
 	Action Action `json:"action"`
 
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	Labels      []Severity `json:"label"`
+	Reason      string     `json:"reason"`
+
+	Vulnerability *Vulnerability `json:"vulnerability"`
+
 	CardID      *string `json:"cardId,omitempty"`
 	ChecklistID *string `json:"checklistID,omitempty"`
+}
 
+type Vulnerability struct {
 	Title       string          `json:"title"`
-	Description string          `json:"description"`
-	Labels      []Severity      `json:"label"`
+	Description string          `json:"desc"`
 	Hosts       map[string]bool `json:"hosts"`
+	Labels      []Severity      `json:"labels"`
+	Closed      bool            `json:"closed"`
+	CardID      *string         `json:"cardID"`
+	ChecklistID *string         `json:"checklistID"`
 }

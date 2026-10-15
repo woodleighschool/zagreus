@@ -3,11 +3,15 @@ module github.com/woodleighschool/zagreus
 go 1.27.0
 
 require (
+	github.com/dustin/go-humanize v1.1.0
+	github.com/fatih/color v1.19.0
 	github.com/go-playground/validator/v10 v10.30.5
 	github.com/invopop/jsonschema v0.14.0
+	github.com/mattn/go-runewidth v0.0.13
 	github.com/spf13/cobra v1.10.2
 	go.yaml.in/yaml/v3 v3.0.5
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
+	golang.org/x/term v0.46.0
 )
 
 require (
@@ -25,9 +29,8 @@ require (
 	github.com/google/go-dap v0.12.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/leodido/go-urn v1.5.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

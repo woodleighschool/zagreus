@@ -8,11 +8,17 @@ import (
 	"github.com/woodleighschool/zagreus/internal/app"
 )
 
-func runLoop(ctx context.Context, interval time.Duration, service *app.Service, wake <-chan struct{}, logger *slog.Logger) {
-	runCycle(ctx, service.FullSync, logger)
-	for ctx.Err() == nil {
-		delay := interval
-		timer := time.NewTimer(delay)
+type service interface {
+	Sync(context.Context) ([]app.Result, error)
+}
+
+func runLoop(ctx context.Context, interval time.Duration, service service, logger *slog.Logger) {
+	for {
+		_ = runCycle(ctx, service, logger)
+		if ctx.Err() != nil {
+			return
+		}
+		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
 			if !timer.Stop() {
@@ -22,40 +28,73 @@ func runLoop(ctx context.Context, interval time.Duration, service *app.Service, 
 				}
 			}
 			return
-		case <-wake:
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
 		case <-timer.C:
 		}
-		runCycle(ctx, service.FullSync, logger)
 	}
 }
 
-func runCycle(ctx context.Context, sync func(context.Context) ([]app.Result, error), logger *slog.Logger) {
+func runCycle(ctx context.Context, service service, logger *slog.Logger) error {
 	started := time.Now()
-	results, err := sync(ctx)
+	results, err := service.Sync(ctx)
 	if ctx.Err() != nil {
-		return
+		return err
 	}
 	for _, result := range results {
-		attributes := []any{
-			"title", result.Title,
-			"action", result.Action,
-			"reason", result.Reason,
-		}
-		if result.Error != nil {
-			logger.ErrorContext(ctx, "export failed", append(attributes, "error", result.Error)...)
-		} else {
-			logger.DebugContext(ctx, "export succeeded", attributes...)
-		}
+		logResult(logger, result)
+	}
+	attributes := []any{
+		"cards", len(results),
+		"created", countOutcome(results, app.OutcomeCreated),
+		"updated", countOutcome(results, app.OutcomeUpdated),
+		"closed", countOutcome(results, app.OutcomeClosed),
+		"reopened", countOutcome(results, app.OutcomeReopened),
+		"duration", time.Since(started),
 	}
 	if err != nil {
-		logger.ErrorContext(ctx, "sync cycle failed", "vulns", len(results), "duration", time.Since(started), "error", err)
-		return
+		logger.ErrorContext(ctx, "sync failed", append(attributes, "failed", countOutcome(results, app.OutcomeFailed), "error", err)...)
+	} else {
+		logger.DebugContext(ctx, "sync complete", attributes...)
 	}
-	logger.InfoContext(ctx, "sync cycle succeeded", "vulns", len(results), "duration", time.Since(started))
+	return err
+}
+
+func logResult(logger *slog.Logger, result app.Result) {
+	attributes := []any{
+		"title", result.Title,
+		"labels", result.Vulnerability.Labels,
+		"hosts", len(result.Vulnerability.Hosts),
+		"action", result.Action,
+		"outcome", result.Outcome,
+		"reason", result.Reason,
+	}
+	if result.Error != nil {
+		attributes = append(attributes, "error", *result.Error)
+	}
+	switch result.Outcome {
+	case app.OutcomeCreated:
+		logger.Info("created card", attributes...)
+	case app.OutcomeUpdated:
+		logger.Info("updated card", attributes...)
+	case app.OutcomeReopened:
+		logger.Info("reopened card", attributes...)
+	case app.OutcomeClosed:
+		logger.Info("closed card", attributes...)
+	case app.OutcomeSkipped:
+		logger.Debug("skipped card", attributes...)
+	case app.OutcomeFailed:
+		logger.Warn("failed to change card", attributes...)
+	case app.OutcomePlan:
+		attributes = append(attributes, "action", result.Action)
+		logger.Warn("card planned", attributes...)
+	}
+}
+
+func countOutcome(results []app.Result, outcome app.Outcome) int {
+	count := 0
+	for _, result := range results {
+		if result.Outcome == outcome {
+			count++
+		}
+	}
+	return count
 }

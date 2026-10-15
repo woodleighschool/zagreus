@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/woodleighschool/zagreus/external/nessus"
 	"github.com/woodleighschool/zagreus/internal/config"
@@ -20,55 +22,94 @@ type RuntimeSettings struct {
 	Labels           map[Severity]string
 }
 
-func (s *Service) Plan(ctx context.Context, onlyChanges bool) ([]Intent, error) {
-	var result []Intent
-
-	s.logger.DebugContext(ctx, "setting up runtime vars")
+func (s *Service) Plan(ctx context.Context, includeUnchanged bool) ([]Result, error) {
+	var result []Result
+	var err error
+	step := s.stage(ctx, "Setting up runtime variables")
+	defer func() { step(err) }()
 	if err := s.init(ctx, false); err != nil {
-		s.logger.ErrorContext(ctx, "failed to setup runtime", "err", err)
+		step(fmt.Errorf("failed to setup runtime: %w", err))
 		return nil, err
 	}
-	s.logger.DebugContext(ctx, "finished runtime setup")
+	step(nil, "detail", "runtime setup successfully")
 
-	s.logger.DebugContext(ctx, "preparing intents")
-	intents, err := s.prepare(ctx)
+	step = s.stage(ctx, "Getting Nessus details")
+	vulns, err := s.importNessusDetails(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to prepare intents", "err", err)
+		step(fmt.Errorf("failed to import nessus details: %w", err))
+	}
+	step(nil, "detail", fmt.Sprintf("%d vulnerabilities", len(vulns)))
+
+	step = s.stage(ctx, "Getting existing Trello cards")
+	cards, err := s.importTrelloDetails(ctx)
+	if err != nil {
+		step(fmt.Errorf("failed to import details from trello: %w", err))
+	}
+	step(nil, "detail", fmt.Sprintf("%d cards", len(cards)))
+
+	step = s.stage(ctx, "Preparing intents")
+	intents := s.prepare(ctx, vulns, cards)
+	if err != nil {
+		step(fmt.Errorf("failed to prepare intents: %w", err))
 		return nil, err
 	}
 
 	for _, intent := range intents {
-		if intent.Action != ActionSkip || !onlyChanges {
-			result = append(result, intent)
+		if intent.Action != ActionSkip || includeUnchanged {
+			result = append(result, Result{
+				Intent:  intent,
+				Outcome: OutcomePlan,
+			})
 		}
 	}
+	step(nil, "detail", fmt.Sprintf("%d intents", len(intents)))
 	return result, nil
 }
 
-func (s *Service) FullSync(ctx context.Context) ([]Result, error) {
+func (s *Service) Sync(ctx context.Context) ([]Result, error) {
 	var result []Result
-
-	s.logger.DebugContext(ctx, "setting up runtime vars")
-	if err := s.init(ctx, true); err != nil {
-		s.logger.ErrorContext(ctx, "failed to setup runtime", "err", err)
+	var err error
+	step := s.stage(ctx, "Setting up runtime variables")
+	defer func() { step(err) }()
+	if err := s.init(ctx, false); err != nil {
+		step(fmt.Errorf("failed to setup runtime: %w", err))
 		return nil, err
 	}
-	s.logger.DebugContext(ctx, "finished runtime setup")
+	step(nil, "detail", "runtime setup successfully")
 
-	s.logger.DebugContext(ctx, "preparing intents")
-	intents, err := s.prepare(ctx)
+	step = s.stage(ctx, "Getting Nessus details")
+	vulns, err := s.importNessusDetails(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to prepare intents", "err", err)
+		step(fmt.Errorf("failed to import nessus details: %w", err))
+	}
+	step(nil, "detail", fmt.Sprintf("%d vulnerabilities", len(vulns)))
+
+	step = s.stage(ctx, "Getting existing Trello cards")
+	cards, err := s.importTrelloDetails(ctx)
+	if err != nil {
+		step(fmt.Errorf("failed to import details from trello: %w", err))
+	}
+	step(nil, "detail", fmt.Sprintf("%d cards", len(cards)))
+
+	step = s.stage(ctx, "Preparing intents")
+	intents := s.prepare(ctx, vulns, cards)
+	if err != nil {
+		step(fmt.Errorf("failed to prepare intents: %w", err))
 		return nil, err
 	}
+	step(nil, "detail", fmt.Sprintf("%d intents", len(intents)))
 
-	s.logger.DebugContext(ctx, "exporting prepared intents to trello")
+	step = s.stage(ctx, "Exporting prepared intents to Trello")
 	if err := s.exportChanges(ctx, intents, &result); err != nil {
-		s.logger.ErrorContext(ctx, "failed to export changes to trello", "err", err)
+		step(fmt.Errorf("failed to export changes to trello: %w", err))
 		return nil, err
 	}
-
+	step(nil, "detail", "changes exported successfully")
 	return result, nil
+}
+
+func (s *Service) Validate(ctx context.Context) error {
+	return s.init(ctx, false)
 }
 
 func (s *Service) Poll(ctx context.Context) ([]Result, error) {
@@ -82,128 +123,145 @@ func (s *Service) Poll(ctx context.Context) ([]Result, error) {
 	return nil, nil
 }
 
-func (s *Service) prepare(ctx context.Context) ([]Intent, error) {
-	s.logger.DebugContext(ctx, "retrieving information from nessus")
-	vulnerabilities, err := s.importNessusDetails(ctx)
-	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to retrieve information from nessus", "err", err)
-		return nil, err
-	}
-
-	s.logger.DebugContext(ctx, "retrieving information from trello")
-	existing, err := s.importTrelloDetails(ctx)
-	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to retrieve information from trello", "err", err)
-		return nil, err
-	}
-
-	// TODO: Do I want stupid verbose logging?
+func (s *Service) prepare(ctx context.Context, vulns map[string]Vulnerability, cards map[string]Vulnerability) []Intent {
 	var intents []Intent
-	for name, details := range vulnerabilities {
+	progress := 0
+	for name, details := range vulns {
 		var intent Intent
-		card, cardOk := existing[name]
+		card, cardOk := cards[name]
 		if cardOk {
 			hosts, equal := reconcileLists(details.Hosts, card.Hosts)
 			states := slices.Collect(maps.Values(hosts))
 			switch {
 			case equal:
 				intent.Action = ActionSkip
-			case slices.Contains(states, false):
-				if card.Closed {
+				intent.Reason = "No changes required"
+			case card.Closed:
+				if slices.Contains(states, false) {
 					intent.Action = ActionReopen
-					details.Labels = slices.DeleteFunc(details.Labels, func(l Severity) bool { return l == ResolvedSeverity })
+					intent.Reason = "Hosts still reporting from Nessus"
+					details.Labels = reconcileLabels(details.Labels, card.Labels, ResolvedSeverity)
 				} else {
-					intent.Action = ActionUpdate
+					intent.Action = ActionSkip
+					intent.Reason = "No changes required"
 				}
-			default:
+			case !slices.Contains(states, false):
 				intent.Action = ActionClose
+				intent.Reason = "No more hosts reporting from Nessus"
+			default:
+				intent.Action = ActionUpdate
 			}
 			intent.CardID = card.CardID
 			intent.ChecklistID = card.ChecklistID
 			intent.Title = details.Title
 			intent.Description = details.Description
-			intent.Labels = details.Labels
-			intent.Hosts = hosts
+			intent.Labels = reconcileLabels(details.Labels, card.Labels)
+			intent.Vulnerability = &details
+			delete(cards, name)
 		} else {
 			hosts := make(map[string]bool)
 			for host := range details.Hosts {
 				hosts[host] = false
 			}
 			intent = Intent{
-				Action:      ActionCreate,
-				Title:       details.Title,
-				Description: details.Description,
-				Labels:      details.Labels,
-				Hosts:       hosts,
+				Action:        ActionCreate,
+				Title:         details.Title,
+				Description:   details.Description,
+				Labels:        details.Labels,
+				Vulnerability: &details,
+				Reason:        "Card does not currently exist on board",
 			}
 		}
 		intents = append(intents, intent)
+
+		progress++
+		s.logger.InfoContext(ctx, "Parsing vulnerabilities from Nessus", "progress", true, "current", progress, "total", len(vulns), "unit", "vulns", "progress_final", progress == len(vulns))
 	}
 
-	for name, details := range existing {
-		_, ok := vulnerabilities[name]
-		if !ok {
+	progress = 0
+	for name, details := range cards {
+		_, ok := vulns[name]
+		if !ok && !details.Closed {
 			intents = append(intents, Intent{
 				Action:      ActionClose,
-				CardID:      details.CardID,
-				ChecklistID: details.ChecklistID,
 				Title:       details.Title,
 				Description: details.Description,
 				Labels:      details.Labels,
-				Hosts:       nil,
+				Reason:      "No matching vulnerability from Nessus",
+				CardID:      details.CardID,
+				ChecklistID: details.ChecklistID,
+			})
+		} else {
+			intents = append(intents, Intent{
+				Action:      ActionSkip,
+				Title:       details.Title,
+				Description: details.Description,
+				Labels:      details.Labels,
+				Reason:      "Nothing to action on card",
+				CardID:      details.CardID,
+				ChecklistID: details.ChecklistID,
 			})
 		}
+
+		progress++
+		s.logger.InfoContext(ctx, "Parsing orphaned vulnerabilities on Trello", "progress", true, "current", progress, "total", len(cards), "unit", "vulns", "progress_final", progress == len(cards))
 	}
 
-	return intents, nil
+	return intents
 }
 
 func (s *Service) importNessusDetails(ctx context.Context) (map[string]Vulnerability, error) {
+	result := make(map[string]Vulnerability)
 	s.logger.DebugContext(ctx, "getting host details for nessus scan", "scan", s.config.Nessus.Settings.Scan)
-	hosts, err := s.nessus.GetScanDetails(ctx, s.config.Nessus.Settings.Scan)
+	scan, err := s.nessus.GetScan(ctx, s.config.Nessus.Settings.Scan)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "failed to get nessus scan details", "err", err)
-		return nil, fmt.Errorf("unable to get nessus scans: %w", err)
+		return nil, fmt.Errorf("unable to get nessus scan: %w", err)
 	}
-	vulnerabilities := make(map[string]Vulnerability)
-	for _, host := range hosts {
-		if s.shouldIgnoreHost(host) {
-			continue
+	progress := 0
+	for _, host := range scan.Hosts {
+		details, err := s.nessus.GetScanHostDetails(ctx, scan.Info.ObjectID, host.ID)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get scan details for host %d: %w", host.ID, err)
 		}
-		for _, vuln := range host.Vulnerabilities {
-			if s.shouldIgnoreVuln(host, vuln) {
+		if s.shouldIgnoreHost(details) {
+			progress++
+			s.logger.InfoContext(ctx, "Getting Nessus details", "progress", true, "current", progress, "total", len(scan.Hosts), "unit", "hosts", "progress_final", progress == len(scan.Hosts))
+		}
+		for _, vuln := range details.Vulnerabilities {
+			if s.shouldIgnoreVuln(details, vuln) {
 				continue
 			}
-			value, ok := vulnerabilities[vuln.PluginName]
+			val, ok := result[vuln.PluginName]
 			if ok {
-				id := getIdentifier(host)
-				value.Hosts[id] = false
+				id := getIdentifier(details)
+				val.Hosts[id] = false
 			} else {
 				payload, err := s.createPayload(ctx, vuln)
 				if err != nil {
 					s.logger.ErrorContext(ctx, "failed to prepare vulnerability information", "err", err)
 					return nil, err
 				}
-				id := getIdentifier(host)
+				id := getIdentifier(details)
 				payload.Hosts[id] = false
-				value = payload
+				val = payload
 			}
-			vulnerabilities[vuln.PluginName] = value
+			result[vuln.PluginName] = val
 		}
+
+		progress++
+		s.logger.InfoContext(ctx, "Getting Nessus details", "progress", true, "current", progress, "total", len(scan.Hosts), "unit", "hosts", "progress_final", progress == len(scan.Hosts))
 	}
 
-	return vulnerabilities, nil
+	return result, nil
 }
 
 func (s *Service) importTrelloDetails(ctx context.Context) (map[string]Vulnerability, error) {
-	s.logger.DebugContext(ctx, "getting most recent trello board matching prefix", "prefix", s.config.Trello.Settings.Prefix)
 	board, err := s.trello.GetLatestBoard(ctx, &s.config.Trello.Settings.Prefix)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to retrieve trello board", "err", err)
 		return nil, err
 	}
 
-	s.logger.DebugContext(ctx, "listing card from trello board", "board", board.Name, "id", board.ID)
 	boardCards, err := s.trello.ListBoardCards(ctx, board.ID)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "failed to list trello board cards", "err", err)
@@ -213,7 +271,8 @@ func (s *Service) importTrelloDetails(ctx context.Context) (map[string]Vulnerabi
 	regex := regexp.MustCompile(".*zagreus_import.*")
 
 	cards := make(map[string]Vulnerability)
-	for _, resp := range boardCards {
+	for progress := 0; progress < len(boardCards); s.updateProgress(ctx, "Getting existing Trello cards", &progress, len(boardCards), "cards") {
+		resp := boardCards[progress]
 		if !regex.MatchString(resp.Description) {
 			s.logger.DebugContext(ctx, "skipping non-zagreus card", "name", resp.Name, "id", resp.ID)
 			continue
@@ -226,7 +285,7 @@ func (s *Service) importTrelloDetails(ctx context.Context) (map[string]Vulnerabi
 			Title:       resp.Name,
 			Description: resp.Description,
 			CardID:      &resp.ID,
-			Closed:      resp.Closed,
+			Closed:      resp.DueComplete,
 			Hosts:       make(map[string]bool),
 		}
 		if len(resp.ChecklistIDs) != 0 {
@@ -257,17 +316,15 @@ func (s *Service) importTrelloDetails(ctx context.Context) (map[string]Vulnerabi
 }
 
 func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *[]Result) error {
+	progress := 0
 	for _, intent := range intents {
 		result := Result{
-			Title:  intent.Title,
-			Action: &intent.Action,
+			Intent: intent,
 		}
 		switch intent.Action {
 		case ActionCreate:
 			s.logger.DebugContext(ctx, "creating new card", "name", intent.Title)
-			reason, err := s.createCard(ctx, intent)
-			result.Reason = reason
-			if err != nil {
+			if err := s.createCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to create new card", "err", err)
 				result.Outcome = OutcomeFailed
 				result.Error = new(fmt.Errorf("%w", err))
@@ -276,9 +333,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 			}
 		case ActionUpdate:
 			s.logger.DebugContext(ctx, "updating existing card", "name", intent.Title, "id", *intent.CardID)
-			reason, err := s.updateCard(ctx, intent)
-			result.Reason = reason
-			if err != nil {
+			if err := s.updateCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to update card", "id", *intent.CardID, "err", err)
 				result.Outcome = OutcomeFailed
 				result.Error = new(fmt.Errorf("%w", err))
@@ -287,9 +342,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 			}
 		case ActionReopen:
 			s.logger.DebugContext(ctx, "reopening existing closed card", "name", intent.Title, "id", *intent.CardID)
-			reason, err := s.reopenCard(ctx, intent)
-			result.Reason = reason
-			if err != nil {
+			if err := s.reopenCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to reopen card", "id", *intent.CardID, "err", err)
 				result.Outcome = OutcomeFailed
 				result.Error = new(fmt.Errorf("%w", err))
@@ -298,9 +351,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 			}
 		case ActionClose:
 			s.logger.DebugContext(ctx, "closing existing card with no active hosts", "name", intent.Title, "id", *intent.CardID)
-			reason, err := s.closeCard(ctx, intent)
-			result.Reason = reason
-			if err != nil {
+			if err := s.closeCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to close card", "id", *intent.CardID, "err", err)
 				result.Outcome = OutcomeFailed
 				result.Error = new(fmt.Errorf("%w", err))
@@ -310,12 +361,14 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 		case ActionSkip:
 			s.logger.DebugContext(ctx, "skipping card as no changes to make", "name", intent.Title, "id", *intent.CardID)
 			result.Outcome = OutcomeSkipped
-			result.Reason = "No changes to make"
 		default:
 			s.logger.ErrorContext(ctx, "unknown intent action", "action", intent.Action)
 			return fmt.Errorf("unknown intent action: %s", intent.Action)
 		}
 		*results = append(*results, result)
+
+		progress++
+		s.logger.InfoContext(ctx, "Exporting prepared intents to Trello", "progress", true, "current", progress, "total", len(intents), "unit", "intents", "progress_final", progress == len(intents))
 	}
 	return nil
 }
@@ -377,4 +430,24 @@ func (s *Service) createPayload(ctx context.Context, vuln nessus.HostVulnerabili
 	result.Hosts = make(map[string]bool)
 
 	return result, nil
+}
+
+func (s *Service) updateProgress(ctx context.Context, message string, progress *int, total int, unit string) {
+	*progress++
+	s.logger.InfoContext(ctx, message, "progress", true, "current", *progress, "total", total, "unit", unit, "progress_final", *progress == total)
+}
+
+func (s *Service) stage(ctx context.Context, message string) func(error, ...any) {
+	started := time.Now()
+	s.logger.InfoContext(ctx, message, "stage", true)
+	var once sync.Once
+	return func(err error, details ...any) {
+		once.Do(func() {
+			result := append([]any{"stage_result", true, "elapsed", time.Since(started).Round(time.Millisecond)}, details...)
+			if err != nil {
+				result = append(result, "error", err)
+			}
+			s.logger.InfoContext(ctx, message, result...)
+		})
+	}
 }

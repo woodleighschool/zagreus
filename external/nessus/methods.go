@@ -7,22 +7,6 @@ import (
 	"net/http"
 )
 
-func (c *Client) GetScanDetails(ctx context.Context, scanID int) ([]HostDetails, error) {
-	var result []HostDetails
-	scan, err := c.GetScan(ctx, scanID)
-	if err != nil {
-		return nil, err
-	}
-	for _, host := range scan.Hosts {
-		details, err := c.GetScanHostDetails(ctx, scanID, host.ID)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get scan details for host %d: %w", host.ID, err)
-		}
-		result = append(result, details)
-	}
-	return result, nil
-}
-
 func (c *Client) GetScan(ctx context.Context, scanID int) (Scan, error) {
 	var result Scan
 	url := fmt.Sprintf("/scans/%d", scanID)

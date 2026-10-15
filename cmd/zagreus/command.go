@@ -1,21 +1,24 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
-	"time"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/woodleighschool/zagreus/internal/app"
 	"github.com/woodleighschool/zagreus/internal/config"
 )
 
-func newRootCommand() *cobra.Command {
-	var configPaths []string
-	var logLevel string
+type cli struct {
+	configPaths []string
+	output      *commandOutput
+}
+
+func newRootCommand() (*cobra.Command, *commandOutput) {
+	c := &cli{output: &commandOutput{}}
 	command := &cobra.Command{
 		Use:           "zagreus",
 		Short:         "Syncs current vulnerabilities from Nessus Professional into Trello",
@@ -27,27 +30,27 @@ func newRootCommand() *cobra.Command {
 			return command.Help()
 		},
 	}
+	output := c.output
+	command.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		return output.start(cmd)
+	}
+	command.SetVersionTemplate(fmt.Sprintf("zagreus %s (commit %s, built %s)\n", version, commit, date))
+	command.PersistentFlags().Bool("no-progress", false, "Disable terminal progress")
 	command.PersistentFlags().StringArrayVar(
-		&configPaths,
+		&c.configPaths,
 		"config",
 		defaultConfigPaths(),
-		"path to a YAML configuration file; may be repeated in overlay order",
-	)
-	command.PersistentFlags().StringVar(
-		&logLevel,
-		"log_level",
-		"info",
-		"log verbosity level",
+		"path to a YAML configuration file; may be repeated in overlay mode",
 	)
 	command.AddCommand(
-		newPlanCommand(&configPaths, &logLevel),
-		newRunCommand(&configPaths, &logLevel),
-		newSyncCommand(&configPaths, &logLevel),
-		newPollCommand(&configPaths, &logLevel),
+		c.validateCommand(),
+		c.planCommand(),
+		c.syncCommand(),
+		c.runCommand(),
 		newSchemaCommand(),
 		newVersionCommand(),
 	)
-	return command
+	return command, output
 }
 
 func defaultConfigPaths() []string {
@@ -58,106 +61,112 @@ func defaultConfigPaths() []string {
 	return []string{"config.yaml"}
 }
 
-func newPlanCommand(configPaths *[]string, logLevel *string) *cobra.Command {
-	var onlyChanges bool
+func (c *cli) validateCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "validate",
+		Short: "Validate configuration and Trello board state",
+		Args:  cobra.NoArgs,
+		RunE: func(command *cobra.Command, _ []string) error {
+			cfg, err := c.loadConfig(command)
+			if err != nil {
+				return fmt.Errorf("validate configuration: %w", err)
+			}
+			service, err := app.New(cfg, c.output.logger)
+			if err != nil {
+				return fmt.Errorf("start service: %w", err)
+			}
+			if err := service.Validate(command.Context()); err != nil {
+				_, err := fmt.Fprintln(command.OutOrStdout(), newTextStyle(command.OutOrStdout()).paint("✗ Failed to validate environment", color.FgHiRed))
+				return err
+			}
+			_, err = fmt.Fprintln(command.OutOrStdout(), newTextStyle(command.OutOrStdout()).paint("✓ Configuration/State is valid", color.FgHiGreen))
+			return err
+		},
+	}
+}
+
+func (c *cli) planCommand() *cobra.Command {
+	var includeUnchanged bool
+	var jsonOutput bool
 	command := &cobra.Command{
 		Use:   "plan",
-		Short: "Runs full sync once but does not commit any changes, merely shows what it would do",
+		Short: "Print out a plan of what actions would be commited if a sync was run",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			level, err := parseLogLevel(*logLevel)
+			cfg, err := c.loadConfig(command)
 			if err != nil {
 				return err
 			}
-			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
-			application, _, err := buildOperationalApp(command, *configPaths, logger)
+			service, err := app.New(cfg, c.output.logger)
 			if err != nil {
-				return err
+				return fmt.Errorf("start service: %w", err)
 			}
-			logger.Info("Zagreus started", "version", version, "config", *configPaths, "mode", "plan")
-			plans, planErr := application.Plan(command.Context(), onlyChanges)
-			if len(plans) != 0 {
-				writeErr := writePlans(command.OutOrStdout(), plans)
-				return errors.Join(planErr, writeErr)
+			plans, planErr := service.Plan(command.Context(), includeUnchanged)
+			c.output.stop()
+			if planErr != nil {
+				return planErr
 			}
-			logger.InfoContext(command.Context(), "Nothing to action")
-			return nil
+			if plans == nil {
+				c.output.logger.Info("Nothing to action")
+			}
+			return writeReport(command.OutOrStdout(), jsonOutput, includeUnchanged, false, plans, planErr)
 		},
 	}
-	command.Flags().BoolVar(&onlyChanges, "only_changes", true, "only output changes not anything to be skipped")
+	command.Flags().BoolVar(&includeUnchanged, "include-unchanged", false, "Include unchanged cards in the plan report")
+	command.Flags().BoolVar(&jsonOutput, "json", false, "Write the plan report as JSON")
 	return command
 }
 
-func newRunCommand(configPaths *[]string, logLevel *string) *cobra.Command {
-	var once bool
+func (c *cli) syncCommand() *cobra.Command {
+	var jsonOutput bool
+	var includeUnchanged bool
 	command := &cobra.Command{
-		Use:   "run",
-		Short: "Syncs vulnerabilities from Nessus to Trello immediately, and then again at configured intervals",
+		Use:   "sync",
+		Short: "Sync from Nessus to Trello once, and then print the results",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			level, err := parseLogLevel(*logLevel)
+			cfg, err := c.loadConfig(command)
 			if err != nil {
 				return err
 			}
-			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
-			application, interval, err := buildOperationalApp(command, *configPaths, logger)
+			service, err := app.New(cfg, c.output.logger)
 			if err != nil {
-				return err
+				return fmt.Errorf("start service: %w", err)
 			}
-			logger.Info("Zagreus started", "version", version, "config", *configPaths, "mode", "write", "once", once)
-			syncDone := make(chan struct{})
-			wake := make(chan struct{}, 1)
-			go func() {
-				// TODO: Review
-				runLoop(command.Context(), interval, application, wake, logger)
-				close(syncDone)
-			}()
-			<-syncDone
-			return nil
+			results, resultErr := service.Sync(command.Context())
+			c.output.stop()
+			if resultErr != nil {
+				return resultErr
+			}
+			if results == nil {
+				c.output.logger.Info("Nothing to action")
+				return nil
+			}
+			return writeReport(command.OutOrStdout(), jsonOutput, includeUnchanged, true, results, resultErr)
 		},
 	}
-	command.Flags().BoolVar(&once, "once", false, "run once and exit")
+	command.Flags().BoolVar(&jsonOutput, "json", false, "Write the report as JSON")
+	command.Flags().BoolVar(&includeUnchanged, "include-unchanged", false, "Include unchanged cards in report")
 	return command
 }
 
-func newSyncCommand(configPaths *[]string, logLevel *string) *cobra.Command {
+func (c *cli) runCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "sync",
-		Short: "Syncs all vulnerabilities from latest Nessus report to Trello on demand",
+		Use:   "run",
+		Short: "Sync immediately, then again at scheduled intervals",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			level, err := parseLogLevel(*logLevel)
+			cfg, err := c.loadConfig(command)
 			if err != nil {
 				return err
 			}
-			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
-			application, _, err := buildOperationalApp(command, *configPaths, logger)
+			service, err := app.New(cfg, c.output.logger)
 			if err != nil {
-				return err
+				return fmt.Errorf("start service: %w", err)
 			}
-			results, err := application.FullSync(command.Context())
-			return errors.Join(writeSyncResults(command.OutOrStdout(), results), err)
-		},
-	}
-}
-
-func newPollCommand(configPaths *[]string, logLevel *string) *cobra.Command {
-	return &cobra.Command{
-		Use:   "poll",
-		Short: "Checks for any Trello-side updates to make",
-		Args:  cobra.NoArgs,
-		RunE: func(command *cobra.Command, _ []string) error {
-			level, err := parseLogLevel(*logLevel)
-			if err != nil {
-				return err
-			}
-			logger := slog.New(slog.NewJSONHandler(command.ErrOrStderr(), &slog.HandlerOptions{Level: level}))
-			application, _, err := buildOperationalApp(command, *configPaths, logger)
-			if err != nil {
-				return err
-			}
-			results, err := application.Poll(command.Context())
-			return errors.Join(writeSyncResults(command.OutOrStdout(), results), err)
+			c.output.logger.Info("Service started", "version", version)
+			runLoop(command.Context(), cfg.Settings.Sync.PollInterval.Duration, service, c.output.logger)
+			return nil
 		},
 	}
 }
@@ -166,7 +175,7 @@ func newSchemaCommand() *cobra.Command {
 	var outputPath string
 	command := &cobra.Command{
 		Use:   "schema",
-		Short: "Generate configuration file schema",
+		Short: "Generate the JSON schema used by YAML editors",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			document, err := config.JSONSchemaDocument()
@@ -177,7 +186,7 @@ func newSchemaCommand() *cobra.Command {
 				_, err = command.OutOrStdout().Write(document)
 				return err
 			}
-			if err := os.WriteFile(outputPath, document, 0o644); err != nil { // #nosec G306 - Containerized, we will always control the file system
+			if err := os.WriteFile(outputPath, document, 0o644); err != nil { // #nosec G306 - Containerized, we always control the file system
 				return fmt.Errorf("write config schema: %w", err)
 			}
 			return nil
@@ -193,22 +202,26 @@ func newVersionCommand() *cobra.Command {
 		Short: "Show version information",
 		Args:  cobra.NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintf(command.OutOrStdout(), "zagreus %s\ncommit: %s\nbuilt %s\n", version, commit, date)
+			_, err := fmt.Fprintf(command.OutOrStdout(), "zagreus %s (commit %s, built %s)\n", version, commit, date)
 			return err
 		},
 	}
 }
 
-func buildOperationalApp(command *cobra.Command, configPaths []string, logger *slog.Logger) (*app.Service, time.Duration, error) {
-	cfg, err := config.Load(configPaths...)
+func (c *cli) loadConfig(command *cobra.Command) (*config.Config, error) {
+	cfg, err := config.Load(c.configPaths...)
 	if err != nil {
-		return nil, time.Microsecond, fmt.Errorf("load configuration: %w", err)
+		return nil, fmt.Errorf("load configuration: %w", err)
 	}
-	application, err := app.New(command.Context(), cfg, logger)
-	if err != nil {
-		return nil, time.Microsecond, fmt.Errorf("start service: %w", err)
+	if c.output.daemon && !command.Flags().Changed("log-level") {
+		level, err := parseLogLevel(cfg.Settings.LogLevel)
+		if err != nil {
+			return nil, err
+		}
+		c.output.threshold.Set(level)
 	}
-	return application, cfg.Settings.Sync.PollInterval.Duration, nil
+	c.output.logger.DebugContext(command.Context(), "Loading application")
+	return cfg, nil
 }
 
 func parseLogLevel(value string) (slog.Level, error) {
