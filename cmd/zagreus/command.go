@@ -42,6 +42,7 @@ func newRootCommand() (*cobra.Command, *commandOutput) {
 		defaultConfigPaths(),
 		"path to a YAML configuration file; may be repeated in overlay mode",
 	)
+	command.PersistentFlags().StringVar(&c.output.level, "log-level", "info", "Override the config.yaml log-level value")
 	command.AddCommand(
 		c.validateCommand(),
 		c.planCommand(),
