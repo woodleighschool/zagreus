@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/woodleighschool/zagreus/compare/v0.1.0...v0.1.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* **command:** misplaced a definition for log-level when rewriting ([141bef4](https://github.com/woodleighschool/zagreus/commit/141bef44334341c13d54dd6d0ca5b3d7798dbefa))
+
 ## 0.1.0 (2026-10-16)
 
 
