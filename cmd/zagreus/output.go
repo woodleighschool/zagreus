@@ -57,16 +57,16 @@ func writeReport(writer io.Writer, jsonOutput, includeUnchanged, apply bool, res
 	for _, result := range report.Cards {
 		writeResult(&text, style, result, apply)
 	}
-	actions := report.Summary.Actions
-	fmt.Fprintf(&text, "\n%s %d total, %d create, %d update, %d close, %d reopen, %d skip\n",
-		style.paint("Cards:", color.Bold), report.Summary.Total, actions[app.ActionCreate], actions[app.ActionUpdate],
-		actions[app.ActionClose], actions[app.ActionReopen], actions[app.ActionSkip])
 	if apply {
 		outcomes := report.Summary.Outcomes
 		fmt.Fprintf(&text, "%s %d created, %d updated, %d closed, %d reopened, %d skipped, %d failed\n",
 			style.paint("Cards:", color.Bold), outcomes[app.OutcomeCreated], outcomes[app.OutcomeUpdated],
 			outcomes[app.OutcomeClosed], outcomes[app.OutcomeReopened], outcomes[app.OutcomeSkipped], outcomes[app.OutcomeFailed])
 	} else {
+		actions := report.Summary.Actions
+		fmt.Fprintf(&text, "\n%s %d total, %d create, %d update, %d close, %d reopen, %d skip\n",
+			style.paint("Cards:", color.Bold), report.Summary.Total, actions[app.ActionCreate], actions[app.ActionUpdate],
+			actions[app.ActionClose], actions[app.ActionReopen], actions[app.ActionSkip])
 		text.WriteString("No actions submitted. Only displaying plans.\n")
 	}
 	if runErr != nil {

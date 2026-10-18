@@ -37,6 +37,7 @@ func (s *Service) Plan(ctx context.Context, includeUnchanged bool) ([]Result, er
 	vulns, err := s.importNessusDetails(ctx)
 	if err != nil {
 		step(fmt.Errorf("failed to import nessus details: %w", err))
+		return nil, err
 	}
 	step(nil, "detail", fmt.Sprintf("%d vulnerabilities", len(vulns)))
 
@@ -44,6 +45,7 @@ func (s *Service) Plan(ctx context.Context, includeUnchanged bool) ([]Result, er
 	cards, err := s.importTrelloDetails(ctx)
 	if err != nil {
 		step(fmt.Errorf("failed to import details from trello: %w", err))
+		return nil, err
 	}
 	step(nil, "detail", fmt.Sprintf("%d cards", len(cards)))
 
@@ -81,6 +83,7 @@ func (s *Service) Sync(ctx context.Context) ([]Result, error) {
 	vulns, err := s.importNessusDetails(ctx)
 	if err != nil {
 		step(fmt.Errorf("failed to import nessus details: %w", err))
+		return nil, err
 	}
 	step(nil, "detail", fmt.Sprintf("%d vulnerabilities", len(vulns)))
 
@@ -88,6 +91,7 @@ func (s *Service) Sync(ctx context.Context) ([]Result, error) {
 	cards, err := s.importTrelloDetails(ctx)
 	if err != nil {
 		step(fmt.Errorf("failed to import details from trello: %w", err))
+		return nil, err
 	}
 	step(nil, "detail", fmt.Sprintf("%d cards", len(cards)))
 
