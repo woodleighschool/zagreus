@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/woodleighschool/zagreus/compare/v0.1.1...v0.1.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **sync:** wasn't returning from function if err != nil ([6a54204](https://github.com/woodleighschool/zagreus/commit/6a542047194a1975d34490340294aac4b54c5d57))
+
 ## [0.1.1](https://github.com/woodleighschool/zagreus/compare/v0.1.0...v0.1.1) (2026-10-16)
 
 
