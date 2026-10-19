@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/woodleighschool/zagreus/compare/v0.1.2...v0.1.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* **report:** vulnerability is null if skipping a card, adding safety check to prevent panic ([6b6c83a](https://github.com/woodleighschool/zagreus/commit/6b6c83a957105f4573671bfc33a09f6093812fd7))
+
 ## [0.1.2](https://github.com/woodleighschool/zagreus/compare/v0.1.1...v0.1.2) (2026-10-18)
 
 
