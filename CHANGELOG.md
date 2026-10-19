@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/woodleighschool/zagreus/compare/v0.1.3...v0.1.4) (2026-10-19)
+
+
+### Bug Fixes
+
+* **logging:** tidying up logging to be more clear by default; added verbose ([bc6f02f](https://github.com/woodleighschool/zagreus/commit/bc6f02f28e90df7dacd7b717b6b62e61d70a4e1f))
+
 ## [0.1.3](https://github.com/woodleighschool/zagreus/compare/v0.1.2...v0.1.3) (2026-10-19)
 
 
