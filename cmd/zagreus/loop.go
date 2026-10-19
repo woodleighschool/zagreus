@@ -61,11 +61,13 @@ func runCycle(ctx context.Context, service service, logger *slog.Logger) error {
 func logResult(logger *slog.Logger, result app.Result) {
 	attributes := []any{
 		"title", result.Title,
-		"labels", result.Vulnerability.Labels,
-		"hosts", len(result.Vulnerability.Hosts),
 		"action", result.Action,
 		"outcome", result.Outcome,
 		"reason", result.Reason,
+	}
+	if result.Vulnerability != nil {
+		attributes = append(attributes, "labels", result.Vulnerability.Labels)
+		attributes = append(attributes, "hosts", len(result.Vulnerability.Hosts))
 	}
 	if result.Error != nil {
 		attributes = append(attributes, "error", *result.Error)
