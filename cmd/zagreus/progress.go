@@ -18,11 +18,11 @@ import (
 )
 
 type activity struct {
-	stage, progress, status bool
-	label, detail, unit     string
-	current, total          int64
-	elapsed                 time.Duration
-	err                     string
+	stage, progress, status, verbose bool
+	label, detail, unit              string
+	current, total                   int64
+	elapsed                          time.Duration
+	err                              string
 }
 
 func readActivity(record slog.Record, attrs []slog.Attr) activity {
@@ -35,6 +35,8 @@ func readActivity(record slog.Record, attrs []slog.Attr) activity {
 			a.progress = attr.Value.Kind() == slog.KindBool && attr.Value.Bool()
 		case "stage_result":
 			a.status = attr.Value.Kind() == slog.KindBool && attr.Value.Bool()
+		case "verbose":
+			a.verbose = attr.Value.Kind() == slog.KindBool && attr.Value.Bool()
 		case "current":
 			a.current = activityCount(attr.Value)
 		case "total":
@@ -67,6 +69,20 @@ func activityCount(value slog.Value) int64 {
 		return int64(value.Duration())
 	}
 	return 0
+}
+
+func plainLog(record slog.Record, activity activity) slog.Record {
+	switch {
+	case activity.stage:
+		return slog.NewRecord(record.Time, record.Level, record.Message, record.PC)
+	case activity.status:
+		return slog.NewRecord(record.Time, record.Level, activity.detail, record.PC)
+	case activity.progress:
+		message := fmt.Sprintf("%s: %d/%d %s", record.Message, activity.current, activity.total, activity.unit)
+		return slog.NewRecord(record.Time, record.Level, message, record.PC)
+	default:
+		return record
+	}
 }
 
 const progressDelay = 250 * time.Millisecond

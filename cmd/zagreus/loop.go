@@ -53,7 +53,7 @@ func runCycle(ctx context.Context, service service, logger *slog.Logger) error {
 	if err != nil {
 		logger.ErrorContext(ctx, "sync failed", append(attributes, "failed", countOutcome(results, app.OutcomeFailed), "error", err)...)
 	} else {
-		logger.DebugContext(ctx, "sync complete", attributes...)
+		logger.InfoContext(ctx, "sync complete", attributes...)
 	}
 	return err
 }

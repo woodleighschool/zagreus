@@ -36,6 +36,7 @@ func newRootCommand() (*cobra.Command, *commandOutput) {
 	}
 	command.SetVersionTemplate(fmt.Sprintf("zagreus %s (commit %s, built %s)\n", version, commit, date))
 	command.PersistentFlags().Bool("no-progress", false, "Disable terminal progress")
+	command.PersistentFlags().BoolVar(&c.output.verbose, "verbose", false, "Extremely verbose logging, use with caution")
 	command.PersistentFlags().StringArrayVar(
 		&c.configPaths,
 		"config",
@@ -220,6 +221,9 @@ func (c *cli) loadConfig(command *cobra.Command) (*config.Config, error) {
 			return nil, err
 		}
 		c.output.threshold.Set(level)
+	}
+	if c.output.verbose {
+		c.output.threshold.Set(slog.LevelDebug)
 	}
 	c.output.logger.DebugContext(command.Context(), "Loading application")
 	return cfg, nil

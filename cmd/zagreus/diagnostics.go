@@ -24,6 +24,7 @@ type commandOutput struct {
 	interactive, daemon bool
 	level               string
 	threshold           slog.LevelVar
+	verbose             bool
 }
 
 func (o *commandOutput) start(cmd *cobra.Command) error {
@@ -117,12 +118,19 @@ func (h *activityHandler) Handle(ctx context.Context, record slog.Record) error 
 	a := readActivity(record, h.attrs)
 	o := h.output
 	if o.daemon {
-		if a.stage || a.progress || a.status {
+		if a.verbose && !o.verbose {
+			return nil
+		}
+		if a.stage {
 			record.Level = slog.LevelDebug
+		}
+		if (a.progress || a.status) && !o.verbose {
+			return nil
 		}
 		if !h.Enabled(ctx, record.Level) {
 			return nil
 		}
+		record = plainLog(record, a)
 		return h.Handler.Handle(ctx, record)
 	}
 	o.mu.Lock()

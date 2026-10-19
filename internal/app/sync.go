@@ -278,11 +278,11 @@ func (s *Service) importTrelloDetails(ctx context.Context) (map[string]Vulnerabi
 	for progress := 0; progress < len(boardCards); s.updateProgress(ctx, "Getting existing Trello cards", &progress, len(boardCards), "cards") {
 		resp := boardCards[progress]
 		if !regex.MatchString(resp.Description) {
-			s.logger.DebugContext(ctx, "skipping non-zagreus card", "name", resp.Name, "id", resp.ID)
+			s.logger.DebugContext(ctx, "skipping non-zagreus card", "name", resp.Name, "id", resp.ID, "verbose", true)
 			continue
 		}
 		if resp.Closed && s.config.Settings.Mode == "create" {
-			s.logger.DebugContext(ctx, "skipping already closed card while in create mode", "name", resp.Name, "id", resp.ID)
+			s.logger.DebugContext(ctx, "skipping already closed card while in create mode", "name", resp.Name, "id", resp.ID, "verbose", true)
 			continue
 		}
 		card := Vulnerability{
@@ -293,7 +293,7 @@ func (s *Service) importTrelloDetails(ctx context.Context) (map[string]Vulnerabi
 			Hosts:       make(map[string]bool),
 		}
 		if len(resp.ChecklistIDs) != 0 {
-			s.logger.DebugContext(ctx, "getting checklists for trello card", "board", board.Name, "card", resp.ID)
+			s.logger.DebugContext(ctx, "getting checklists for trello card", "board", board.Name, "card", resp.ID, "verbose", true)
 			checklists, err := s.trello.GetChecklists(ctx, resp.ChecklistIDs)
 			if err != nil {
 				s.logger.ErrorContext(ctx, "failed to get checklists for trello card", "card", resp.Name, "id", resp.ID)
@@ -327,7 +327,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 		}
 		switch intent.Action {
 		case ActionCreate:
-			s.logger.DebugContext(ctx, "creating new card", "name", intent.Title)
+			s.logger.DebugContext(ctx, "creating new card", "name", intent.Title, "verbose", true)
 			if err := s.createCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to create new card", "err", err)
 				result.Outcome = OutcomeFailed
@@ -336,7 +336,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 				result.Outcome = OutcomeCreated
 			}
 		case ActionUpdate:
-			s.logger.DebugContext(ctx, "updating existing card", "name", intent.Title, "id", *intent.CardID)
+			s.logger.DebugContext(ctx, "updating existing card", "name", intent.Title, "id", *intent.CardID, "verbose", true)
 			if err := s.updateCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to update card", "id", *intent.CardID, "err", err)
 				result.Outcome = OutcomeFailed
@@ -345,7 +345,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 				result.Outcome = OutcomeUpdated
 			}
 		case ActionReopen:
-			s.logger.DebugContext(ctx, "reopening existing closed card", "name", intent.Title, "id", *intent.CardID)
+			s.logger.DebugContext(ctx, "reopening existing closed card", "name", intent.Title, "id", *intent.CardID, "verbose", true)
 			if err := s.reopenCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to reopen card", "id", *intent.CardID, "err", err)
 				result.Outcome = OutcomeFailed
@@ -354,7 +354,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 				result.Outcome = OutcomeReopened
 			}
 		case ActionClose:
-			s.logger.DebugContext(ctx, "closing existing card with no active hosts", "name", intent.Title, "id", *intent.CardID)
+			s.logger.DebugContext(ctx, "closing existing card with no active hosts", "name", intent.Title, "id", *intent.CardID, "verbose", true)
 			if err := s.closeCard(ctx, intent); err != nil {
 				s.logger.ErrorContext(ctx, "failed to close card", "id", *intent.CardID, "err", err)
 				result.Outcome = OutcomeFailed
@@ -363,7 +363,7 @@ func (s *Service) exportChanges(ctx context.Context, intents []Intent, results *
 				result.Outcome = OutcomeClosed
 			}
 		case ActionSkip:
-			s.logger.DebugContext(ctx, "skipping card as no changes to make", "name", intent.Title, "id", *intent.CardID)
+			s.logger.DebugContext(ctx, "skipping card as no changes to make", "name", intent.Title, "id", *intent.CardID, "verbose", true)
 			result.Outcome = OutcomeSkipped
 		default:
 			s.logger.ErrorContext(ctx, "unknown intent action", "action", intent.Action)
