@@ -46,8 +46,11 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (d *DateTime) MarshalJSON() ([]byte, error) {
-	t := time.Time(*d)
+func (d DateTime) MarshalJSON() ([]byte, error) {
+	t := time.Time(d)
+	if t.IsZero() {
+		return json.Marshal("null")
+	}
 	formatted := t.UTC().Format("2006-01-02T15:04:05.000Z")
 	return json.Marshal(formatted)
 }
@@ -431,8 +434,8 @@ type UpdateCardRequest struct {
 	LabelIDs          []string      `json:"idLabels,omitempty" validate:"omitempty,dive,trelloID"`
 	BoardID           *string       `json:"idBoard,omitempty" validate:"omitempty,trelloID"`
 	Position          *KeywordFloat `json:"pos,omitempty"`
-	Due               *DateTime     `json:"due,omitempty"`
-	DueComplete       *bool         `json:"dueComplete,omitempty"`
+	Due               *DateTime     `json:"due"`
+	DueComplete       *bool         `json:"dueComplete"`
 }
 
 // Checklists

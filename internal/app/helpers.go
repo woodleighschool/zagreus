@@ -38,9 +38,9 @@ func reconcileLists(nessusList map[string]bool, trelloList map[string]bool) (map
 	maps.Copy(result, trelloList)
 
 	// Import new items from Nessus
-	for host := range nessusList {
-		_, ok := result[host]
-		if !ok {
+	for host, status := range nessusList {
+		val, ok := result[host]
+		if !ok || val != status {
 			result[host] = false
 		}
 	}
@@ -68,8 +68,12 @@ func reconcileLists(nessusList map[string]bool, trelloList map[string]bool) (map
 func reconcileLabels(nessusLabels []Severity, trelloLabels []Severity, remove ...Severity) []Severity {
 	var result []Severity
 	appended := slices.Concat(nessusLabels, trelloLabels)
-	dedup := slices.Compact(appended)
-	result = dedup
+	for _, sev := range appended {
+		if slices.Contains(result, sev) {
+			continue
+		}
+		result = append(result, sev)
+	}
 	for _, sev := range remove {
 		result = slices.DeleteFunc(result, func(s Severity) bool { return s == sev })
 	}

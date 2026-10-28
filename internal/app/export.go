@@ -103,7 +103,7 @@ func (s *Service) reopenCard(ctx context.Context, intent Intent) error {
 		Name:        &intent.Title,
 		Description: &intent.Description,
 		Position:    new(trello.KeywordTop),
-		Due:         nil,
+		Due:         &trello.DateTime{},
 		DueComplete: new(false),
 		ListID:      &s.runtime.InList,
 		LabelIDs:    labelIDs,

@@ -137,14 +137,11 @@ func (s *Service) prepare(ctx context.Context, vulns map[string]Vulnerability, c
 			hosts, equal := reconcileLists(details.Hosts, card.Hosts)
 			states := slices.Collect(maps.Values(hosts))
 			switch {
-			case equal:
-				intent.Action = ActionSkip
-				intent.Reason = "No changes required"
 			case card.Closed:
 				if slices.Contains(states, false) {
 					intent.Action = ActionReopen
 					intent.Reason = "Hosts still reporting from Nessus"
-					details.Labels = reconcileLabels(details.Labels, card.Labels, ResolvedSeverity)
+					intent.Labels = reconcileLabels(details.Labels, card.Labels, ResolvedSeverity)
 				} else {
 					intent.Action = ActionSkip
 					intent.Reason = "No changes required"
@@ -152,14 +149,17 @@ func (s *Service) prepare(ctx context.Context, vulns map[string]Vulnerability, c
 			case !slices.Contains(states, false):
 				intent.Action = ActionClose
 				intent.Reason = "No more hosts reporting from Nessus"
+			case equal:
+				intent.Action = ActionSkip
+				intent.Reason = "No changes required"
 			default:
 				intent.Action = ActionUpdate
+				intent.Labels = reconcileLabels(details.Labels, card.Labels)
 			}
 			intent.CardID = card.CardID
 			intent.ChecklistID = card.ChecklistID
 			intent.Title = details.Title
 			intent.Description = details.Description
-			intent.Labels = reconcileLabels(details.Labels, card.Labels)
 			intent.Vulnerability = &details
 			delete(cards, name)
 		} else {
