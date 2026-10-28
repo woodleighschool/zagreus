@@ -46,8 +46,8 @@ func (d *DateTime) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (d DateTime) MarshalJSON() ([]byte, error) {
-	t := time.Time(d)
+func (d *DateTime) MarshalJSON() ([]byte, error) {
+	t := time.Time(*d)
 	if t.IsZero() {
 		return json.Marshal("null")
 	}
