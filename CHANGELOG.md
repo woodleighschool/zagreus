@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/woodleighschool/zagreus/compare/v0.1.4...v0.1.5) (2026-10-28)
+
+
+### Bug Fixes
+
+* **reopen:** reopening cards now works properly ([1fa23d2](https://github.com/woodleighschool/zagreus/commit/1fa23d220e3ef9cd736917b5e39a410b85c2f5eb))
+
 ## [0.1.4](https://github.com/woodleighschool/zagreus/compare/v0.1.3...v0.1.4) (2026-10-19)
 
 
