@@ -67,13 +67,13 @@ func reconcileLists(nessusList map[string]bool, trelloList map[string]bool) (map
 
 func reconcileLabels(nessusLabels []Severity, trelloLabels []Severity, remove ...Severity) []Severity {
 	var result []Severity
-	appended := slices.Concat(nessusLabels, trelloLabels)
-	for _, sev := range appended {
-		if slices.Contains(result, sev) {
-			continue
-		}
-		result = append(result, sev)
+	if slices.Contains(trelloLabels, WaitingSeverity) {
+		result = append(result, WaitingSeverity)
 	}
+	if slices.Contains(trelloLabels, ResolvedSeverity) {
+		result = append(result, ResolvedSeverity)
+	}
+	result = append(result, nessusLabels...)
 	for _, sev := range remove {
 		result = slices.DeleteFunc(result, func(s Severity) bool { return s == sev })
 	}

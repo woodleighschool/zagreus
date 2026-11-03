@@ -67,9 +67,12 @@ type Scan struct {
 		UserPermissions int              `json:"user_permissions"`
 		Control         bool             `json:"control"`
 	} `json:"info"`
-	Hosts        []ScanHost `json:"hosts"`
-	CompHosts    []ScanHost `json:"comphosts"`
-	Notes        []ScanNote `json:"notes"`
+	Hosts     []ScanHost `json:"hosts"`
+	CompHosts []ScanHost `json:"comphosts"`
+	Notes     struct {
+		Note []ScanNote `json:"note"`
+		Type string     `json:"type"`
+	} `json:"notes"`
 	Remediations struct {
 		Remediations   []ScanRemediation `json:"remediations"`
 		Hosts          int               `json:"num_hosts"`
