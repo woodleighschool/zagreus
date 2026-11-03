@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/woodleighschool/zagreus/compare/v0.1.5...v0.1.6) (2026-11-03)
+
+
+### Bug Fixes
+
+* fixed nessus API model and changed label reconciliation logic ([70a3d05](https://github.com/woodleighschool/zagreus/commit/70a3d0516ef1484538be326ef9af714c816838d1))
+
 ## [0.1.5](https://github.com/woodleighschool/zagreus/compare/v0.1.4...v0.1.5) (2026-10-28)
 
 
