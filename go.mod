@@ -9,7 +9,6 @@ require (
 	github.com/invopop/jsonschema v0.14.0
 	github.com/mattn/go-runewidth v0.0.31
 	github.com/spf13/cobra v1.10.2
-	go.yaml.in/yaml/v3 v3.0.6
 	go.yaml.in/yaml/v4 v4.0.0-rc.7
 	golang.org/x/term v0.47.0
 )
@@ -36,6 +35,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	go.starlark.net v0.0.0-20231101134539-556fd59b42f6 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/arch v0.28.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
