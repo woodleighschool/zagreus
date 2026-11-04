@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/woodleighschool/zagreus/compare/v0.1.7...v0.1.8) (2026-11-04)
+
+
+### Bug Fixes
+
+* fixed ambiguous yaml module version ([d468c49](https://github.com/woodleighschool/zagreus/commit/d468c493460226537d5ccc26b5ef439f4eed0568))
+
 ## [0.1.7](https://github.com/woodleighschool/zagreus/compare/v0.1.6...v0.1.7) (2026-11-04)
 
 
