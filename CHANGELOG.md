@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.7](https://github.com/woodleighschool/zagreus/compare/v0.1.6...v0.1.7) (2026-11-04)
+
+
+### Bug Fixes
+
+* **go:** update module go.yaml.in/yaml/v3 (v3.0.5 → v3.0.6) ([#49](https://github.com/woodleighschool/zagreus/issues/49)) ([18bada9](https://github.com/woodleighschool/zagreus/commit/18bada9578f2574cdcc89cea5a5ac278a5ad0596))
+* **go:** update module go.yaml.in/yaml/v4 (v4.0.0-rc.6 → v4.0.0-rc.7) ([#50](https://github.com/woodleighschool/zagreus/issues/50)) ([eb8c75b](https://github.com/woodleighschool/zagreus/commit/eb8c75b4b22ebbe43e198971a9ccac1d14d0517e))
+
 ## [0.1.6](https://github.com/woodleighschool/zagreus/compare/v0.1.5...v0.1.6) (2026-11-03)
 
 
