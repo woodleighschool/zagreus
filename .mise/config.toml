@@ -23,10 +23,6 @@ run = "go mod download"
 description = "Build application"
 run = "go build -o zagreus ./cmd/zagreus"
 
-[tasks.notices]
-description = "Collect dependency licenses and notices"
-run = "go-licenses save ./cmd/zagreus --save_path third_party_licenses --ignore github.com/woodleighschool/zagreus --force"
-
 [tasks.tidy]
 description = "Tidy the Go module"
 run = "go mod tidy"
