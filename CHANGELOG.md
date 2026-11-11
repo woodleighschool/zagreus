@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.9](https://github.com/woodleighschool/zagreus/compare/v0.1.8...v0.1.9) (2026-11-11)
+
+
+### Bug Fixes
+
+* **go:** update module github.com/go-playground/validator/v10 (v10.30.5 → v10.30.6) ([#56](https://github.com/woodleighschool/zagreus/issues/56)) ([540fd5d](https://github.com/woodleighschool/zagreus/commit/540fd5d5e6061ea5ce8f199b6da692ee4e22c1a0))
+* **go:** update module go.yaml.in/yaml/v4 (v4.0.0-rc.7 → v4.0.0-rc.8) ([#53](https://github.com/woodleighschool/zagreus/issues/53)) ([265d481](https://github.com/woodleighschool/zagreus/commit/265d481558379d2cdbc8e2368b292f693dc99fd6))
+* **go:** update module go.yaml.in/yaml/v4 (v4.0.0-rc.8 → v4.0.0-rc.9) ([#57](https://github.com/woodleighschool/zagreus/issues/57)) ([a7dae72](https://github.com/woodleighschool/zagreus/commit/a7dae72b62c87a9dc5ff1746681742ba6053bc4b))
+* **go:** update module go.yaml.in/yaml/v4 (v4.0.0-rc.9 → v4.0.0) ([#58](https://github.com/woodleighschool/zagreus/issues/58)) ([2e6c07f](https://github.com/woodleighschool/zagreus/commit/2e6c07fb5b37e54c586409abe694595e7f0364f9))
+* **go:** update module golang.org/x/term (v0.47.0 → v0.48.0) ([#62](https://github.com/woodleighschool/zagreus/issues/62)) ([d91b455](https://github.com/woodleighschool/zagreus/commit/d91b455cbe0244d905618a4cb087603ecbae39cd))
+
 ## [0.1.8](https://github.com/woodleighschool/zagreus/compare/v0.1.7...v0.1.8) (2026-11-04)
 
 
